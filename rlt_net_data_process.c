@@ -105,7 +105,7 @@ static rtw_result_t app_scan_result_handler( rtw_scan_handler_result_t* malloced
 	return RTW_SUCCESS;
 }
 
-void wifi_info_parse(unsigned char *data, unsigned short packet_sn, unsigned int socket_fd)
+int wifi_info_parse(unsigned char *data)
 {
 	int ret;
 	int ssid_len = 0;
@@ -115,7 +115,7 @@ void wifi_info_parse(unsigned char *data, unsigned short packet_sn, unsigned int
 	if(wifi_info == NULL)
 	{
 		log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
-		return;
+		return -1;
 	}
 	if(data[0] == 0)
 	{
@@ -130,7 +130,15 @@ void wifi_info_parse(unsigned char *data, unsigned short packet_sn, unsigned int
 		wifi_info->security_type = RTW_SECURITY_WPA2_AES_PSK;
 	}
 	ssid_len = data[1];
+	if(ssid_len > 32 || ssid_len < 1)
+	{
+		return 2;
+	}
 	passwd_len = data[2];
+	if(passwd_len > 64 || passwd_len < 8)
+	{
+		return 3;
+	}
 	memcpy(wifi_info->ssid, &data[3], ssid_len);
 	wifi_info->ssid[ssid_len] = '\0';
 	memcpy(wifi_info->password, &data[3 + ssid_len], passwd_len);
@@ -139,9 +147,9 @@ void wifi_info_parse(unsigned char *data, unsigned short packet_sn, unsigned int
 	ret = rlt_wifi_info_write((unsigned char *)wifi_info, sizeof(rtw_wifi_setting_t));
 	if(ret == 0)
 	{
-		log_printf(LOG_DEBUG"[%s]sys reboot\n",__FUNCTION__);
-		sys_reset();
+		return ret;
 	}
+	return -1;
 }
 
 
@@ -169,7 +177,33 @@ void cmd_0x0061_handle(unsigned short packet_sn, unsigned int socket_fd)
 
 void cmd_0x0062_handle(unsigned char *data, unsigned short packet_sn, unsigned int socket_fd)
 {
-	wifi_info_parse(data, packet_sn, socket_fd);
+	int ret;
+	unsigned char msg_body[2] = {0};
+	unsigned char *tdata;
+	unsigned int tdata_len;
+
+	tdata_len = NET_PACKET_HEAD + 2;
+	tdata = (unsigned char *)malloc(tdata_len);
+	if(tdata == NULL)
+	{
+		log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
+		return;
+	}
+	ret = wifi_info_parse(data);
+	if(ret == 0)
+	{
+		msg_body[0] = 0;
+		msg_body[1] = 0;
+	}
+	else 
+	{
+		msg_body[0] = 1;
+		msg_body[1] = (char)ret;
+	}
+	net_packet_build(WIFI_INFO_ACK, packet_sn, msg_body, 2, tdata);
+	log_printf(LOG_DEBUG"---->APP:\n");
+	print_hex(tdata, tdata_len);
+	write(socket_fd, tdata, tdata_len);
 }
 
 void cmd_0x0063_handle()
