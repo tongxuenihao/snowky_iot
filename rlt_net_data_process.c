@@ -59,7 +59,6 @@ unsigned short CRC_Calculate(unsigned int Length, unsigned char *buf)
 
 void net_packet_build(unsigned short msg_type, unsigned short packet_sn, unsigned char *msg_body, unsigned short msgbody_len, unsigned char *packet)
 {
-	//memset(packet, 0, sizeof(packet));
 	packet[0] = NET_SYNC;
 	packet[1] = NET_SYNC;
 	packet[2] = NET_PACKET_VER;
@@ -67,13 +66,10 @@ void net_packet_build(unsigned short msg_type, unsigned short packet_sn, unsigne
 	*(unsigned short *)&packet[4] = htons(msgbody_len + NET_PACKET_HEAD);
 	*(unsigned short *)&packet[6] = htons(msg_type);
 	*(unsigned short *)&packet[8] = htons(packet_sn);
-	//printf("**********2\n");
 	print_hex(packet,sizeof(packet));
 	//memcpy(&data[16], did, DID_LEN);            //need to add did
 	memcpy(&packet[24], msg_body, msgbody_len);
 	*(unsigned short *)&packet[msgbody_len + NET_PACKET_HEAD -2] = htons(CRC_Calculate(msgbody_len + 22, &packet[2]));
-	//printf("**********2\n");
-	//print_hex(packet,sizeof(packet));
 }
 
 
