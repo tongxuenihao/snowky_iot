@@ -38,6 +38,7 @@ void snowky_example_thread(int argc, char *argv[])
 	//watchdog_refresh();
 	
 	rlk_uart_task_init();
+	rlk_net_task_init();
 
 	while(1)
 	{

@@ -18,8 +18,42 @@
 #include "snowky_uart_task.h"
 #include "rlt_flash_parameter.h"
 #include "rlt_softap_config.h"
+#include "rlt_net_data_process.h"
+
+
+#define BCAST_PORT 28899
 
 extern struct netif xnetif[NET_IF_NUM]; 
+
+int udp_socket_init(unsigned int port)
+{
+	int socket = -1;
+	int broadcast = 1;
+	struct sockaddr_in local_addr;
+	
+	if((socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) 
+	{
+		log_printf(LOG_WARNING"[%s]socket create error\n",__FUNCTION__);
+		return -1;
+	}
+	
+	if(setsockopt(socket, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) < 0)
+	{
+		log_printf(LOG_WARNING"[%s]setsockopt failed\n",__FUNCTION__);
+		return -1;
+	}
+	
+	memset(&local_addr, 0, sizeof(local_addr));
+	local_addr.sin_family = AF_INET;
+	local_addr.sin_port = htons(port);
+	local_addr.sin_addr.s_addr = INADDR_ANY;
+	if(bind(socket, (struct sockaddr *) &local_addr, sizeof(local_addr)) < 0)
+	{
+		log_printf(LOG_WARNING"[%s]bind error\n",__FUNCTION__);
+		return -1;
+	}
+	return socket;
+}
 
 
 int tcp_socket_init(unsigned int port)
@@ -67,6 +101,9 @@ int socket_client_data_read(int client_fd)
 	}
     return read_size;
 }
+
+
+
 
 void rlt_tcp_server_start(int argc, char *argv[])
 {
@@ -162,6 +199,58 @@ int rlt_tcp_server_entry()
 	return 0;
 }
  
+void rlt_broadcast_func(unsigned char *ap_name)
+{
+	struct sockaddr_in to;
+	unsigned char *ip;
+	unsigned char *mac;
+	unsigned char *msg_body;
+	unsigned int msgbody_len;
+	unsigned char *tdata;
+	unsigned int tdata_len;
+	int socket_fd;
+	socket_fd = udp_socket_init(BCAST_PORT);
+	if(socket_fd < 0)
+	{
+		log_printf(LOG_WARNING"[%s]udp init error\n",__FUNCTION__);
+	}
+	msgbody_len = 15 + strlen(ap_name);
+	msg_body = (unsigned char *)malloc(msgbody_len);
+	if(msg_body == NULL)
+	{
+		log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
+		return;
+	}
+	ip = LwIP_GetIP(&xnetif[0]);
+	
+	memcpy(msg_body, ip, 4);
+	*(unsigned int *)&msg_body[4] = htonl(BCAST_PORT);
+	mac = LwIP_GetMAC(&xnetif[0]);
+	memcpy(&msg_body[8], mac, 6);
+	msg_body[14] = strlen(ap_name);
+	strcpy(&msg_body[15], ap_name);
+
+	tdata_len = NET_PACKET_HEAD + msgbody_len;
+	tdata = (unsigned char *)malloc(tdata_len);
+	if(tdata == NULL)
+	{
+		log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
+		return;
+	}
+
+	to.sin_family = AF_INET;
+	to.sin_port = htons(BCAST_PORT);
+	to.sin_addr.s_addr = htonl(0xffffffff);
+	while(1)
+	{
+		//log_printf(LOG_DEBUG"---->APP:\n");             //debug,mark
+		//net_packet_build(WIFI_BROADCAST, get_new_packet_sn(), msg_body, msgbody_len, tdata);
+		//print_hex(tdata, tdata_len);
+		//sendto(socket_fd, tdata, tdata_len, 0, &to, sizeof(struct sockaddr));
+		vTaskDelay(3000);
+	}
+
+} 
 
 void rlt_generate_ap_name(unsigned char *ap_name)
 {
@@ -211,12 +300,9 @@ void rlt_softap_start(rlt_ap_setting *ap_info)
 	dhcps_init(&xnetif[0]);
 
 	rlt_tcp_server_entry();
-	while(1)
-	{
-		//log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
-		vTaskDelay(3000);
-	}
+	rlt_broadcast_func(ap_info->ssid);
 }
+
 
 void rlt_softap_config_mode(int argc, char *argv[])
 {

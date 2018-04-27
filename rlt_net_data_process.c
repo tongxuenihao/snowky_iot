@@ -17,10 +17,17 @@
 unsigned char ssid_info[512] = {0};
 unsigned int offset = 0;
 
-unsigned short get_packet_sn(unsigned char data_h, unsigned char data_l)
+unsigned short get_new_packet_sn()
 {
-	unsigned short temp_sn;
-	temp_sn = (data_h << 8) | data_l;
+	static unsigned short temp_sn = 1;
+	if(temp_sn < 32767)
+	{
+		temp_sn++;
+	}
+	else
+	{
+		temp_sn = 1;
+	}
 	return temp_sn;
 }
 
@@ -50,19 +57,23 @@ unsigned short CRC_Calculate(unsigned int Length, unsigned char *buf)
 }
 
 
-void net_packet_build(unsigned short msg_type, unsigned short packet_sn, unsigned char *msg_body, unsigned short msgbody_len, unsigned char *tdata)
+void net_packet_build(unsigned short msg_type, unsigned short packet_sn, unsigned char *msg_body, unsigned short msgbody_len, unsigned char *packet)
 {
-	memset(tdata, 0, sizeof(tdata));
-	tdata[0] = NET_SYNC;
-	tdata[1] = NET_SYNC;
-	tdata[2] = NET_PACKET_VER;
-	tdata[3] = NET_ENCRYPE_SIGN;
-	*(unsigned short *)&tdata[4] = htons(msgbody_len + NET_PACKET_HEAD);
-	*(unsigned short *)&tdata[6] = htons(msg_type);
-	*(unsigned short *)&tdata[8] = htons(packet_sn);
+	//memset(packet, 0, sizeof(packet));
+	packet[0] = NET_SYNC;
+	packet[1] = NET_SYNC;
+	packet[2] = NET_PACKET_VER;
+	packet[3] = NET_ENCRYPE_SIGN;
+	*(unsigned short *)&packet[4] = htons(msgbody_len + NET_PACKET_HEAD);
+	*(unsigned short *)&packet[6] = htons(msg_type);
+	*(unsigned short *)&packet[8] = htons(packet_sn);
+	//printf("**********2\n");
+	print_hex(packet,sizeof(packet));
 	//memcpy(&data[16], did, DID_LEN);            //need to add did
-	memcpy(&tdata[24], msg_body, msgbody_len);
-	*(unsigned short *)&tdata[msgbody_len + NET_PACKET_HEAD -2] = htons(CRC_Calculate(msgbody_len + 22, &tdata[2]));
+	memcpy(&packet[24], msg_body, msgbody_len);
+	*(unsigned short *)&packet[msgbody_len + NET_PACKET_HEAD -2] = htons(CRC_Calculate(msgbody_len + 22, &packet[2]));
+	//printf("**********2\n");
+	//print_hex(packet,sizeof(packet));
 }
 
 
@@ -169,10 +180,13 @@ void cmd_0x0061_handle(unsigned short packet_sn, unsigned int socket_fd)
 		log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
 		return;
 	}
-	net_packet_build(WIFI_INFO_DOWNLOAD, packet_sn, ssid_info, offset, tdata);
+	vTaskDelay(2000);
+	memset(tdata, 0, tdata_len);
+	net_packet_build(AP_LIST_RES, packet_sn, ssid_info, offset, tdata);
 	log_printf(LOG_DEBUG"---->APP:\n");
 	print_hex(tdata, tdata_len);
 	write(socket_fd, tdata, tdata_len);
+	free(tdata);
 }
 
 void cmd_0x0062_handle(unsigned char *data, unsigned short packet_sn, unsigned int socket_fd)
@@ -200,16 +214,18 @@ void cmd_0x0062_handle(unsigned char *data, unsigned short packet_sn, unsigned i
 		msg_body[0] = 1;
 		msg_body[1] = (char)ret;
 	}
+	memset(tdata, 0, tdata_len);
 	net_packet_build(WIFI_INFO_ACK, packet_sn, msg_body, 2, tdata);
 	log_printf(LOG_DEBUG"---->APP:\n");
 	print_hex(tdata, tdata_len);
 	write(socket_fd, tdata, tdata_len);
+	free(tdata);
 }
 
 void cmd_0x0063_handle()
 {
-
-}
+                                                        //todo
+}               
 
 void net_data_handle(unsigned short msg_type, unsigned short packet_sn, unsigned char *msg_body, unsigned int socket_fd)
 {
@@ -220,6 +236,7 @@ void net_data_handle(unsigned short msg_type, unsigned short packet_sn, unsigned
 		break;
 
 		case WIFI_INFO_DOWNLOAD:
+		cmd_0x0062_handle(msg_body, packet_sn, socket_fd);
 		break;
 
 		case WIFI_MODE_CHANGE_REQ:
@@ -249,7 +266,7 @@ void net_data_parse(unsigned char *data, unsigned int data_len, unsigned int soc
 		return;
 	}
 	msg_type = (data[6] << 8) | data[7];
-	packet_sn = get_packet_sn(*(data + 8), *(data + 9));
+	packet_sn = (data[8] << 8) | data[9];
 	msgbody_len = data_len - NET_PACKET_HEAD;
 	msg_body = (unsigned char *)malloc(msgbody_len);
 	if(msg_body == NULL)
@@ -261,9 +278,12 @@ void net_data_parse(unsigned char *data, unsigned int data_len, unsigned int soc
 	memcpy(msg_body, &data[24], msgbody_len);
 
 	temp_crc = (data[data_len - 2] << 8) | data[data_len - 1];
+
+	net_data_handle(msg_type, packet_sn, msg_body, socket_fd);
+#if 0
 	if(temp_crc = CRC_Calculate(data_len - 2, &data[2]))
 	{
 		net_data_handle(msg_type, packet_sn, msg_body, socket_fd);
 	}
-
+#endif
 }
