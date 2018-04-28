@@ -83,7 +83,10 @@ Try_again:
 
 void net_event_init()
 {
-	rlt_msg_queue_create(msg_queue, 20);
+	rlt_msg_queue_create(&msg_queue, 20);
+	rlt_msg_queue_send(msg_queue, SET_TCP_SOCKET, NULL, 0);
+	rlk_tcp_send_entry();
+	rlk_tcp_recv_entry();
 }
 
 void rlk_net_task(int argc, char *argv[])

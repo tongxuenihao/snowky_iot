@@ -29,11 +29,13 @@ int rlt_msg_queue_sem_init()
 
 int rlt_msg_queue_create(xQueueHandle *mp_que,int msg_num)
 {
-    printf("create msg queue\n");
-    *mp_que = xQueueCreate(msg_num,sizeof(long int));
+    log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
+    *mp_que = xQueueCreate(msg_num,sizeof(t_queue_msg));
 
-    if (*mp_que == 0) {
-            return 0;
+    if (*mp_que == 0) 
+    {
+    	log_printf(LOG_DEBUG"[%s]queue create error\n",__FUNCTION__);
+        return 0;
     }
     rlt_msg_queue_sem_init();
     return 1;
@@ -41,8 +43,10 @@ int rlt_msg_queue_create(xQueueHandle *mp_que,int msg_num)
 
 int rlt_msg_queue_send(xQueueHandle que,int msg_flag,unsigned char *data,unsigned int data_len)
 {
+	log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
     unsigned int ret;
     t_queue_msg que_msg;
+    t_queue_msg que_msg_recv;
     MSG_QUEUE_SEM_LOCK;
 
     if(data == NULL)
@@ -62,7 +66,7 @@ int rlt_msg_queue_send(xQueueHandle que,int msg_flag,unsigned char *data,unsigne
     	que_msg.data_len = data_len;
     }
 
-    ret = xQueueSendToBack(que,(const void *)&que_msg,0);
+    ret = xQueueSendToBack(que,(void *)&que_msg,0);
     if(ret == errQUEUE_FULL)
     {
     	log_printf(LOG_WARNING"[%s]queue full\n",__FUNCTION__);
@@ -71,6 +75,11 @@ int rlt_msg_queue_send(xQueueHandle que,int msg_flag,unsigned char *data,unsigne
             free(que_msg.data);
             que_msg.data = NULL;
         }
+    }
+
+    if(ret != pdPASS)
+    {
+    	log_printf(LOG_WARNING"[%s]queue send error\n",__FUNCTION__);
     }
 
     MSG_QUEUE_SEM_UNLOCK;
