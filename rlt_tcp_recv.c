@@ -4,27 +4,7 @@
 	> Mail: 
 	> Created Time: Sat 28 Apr 2018 02:05:56 PM CST
  ************************************************************************/
-#include "FreeRTOS.h"
-#include "task.h"
-#include "queue.h"
-#include <stdlib.h>
-#include "timers.h"
-#include "serial_api.h"
-#include "timer_api.h"
-#include "wifi_structures.h"
-#include "wifi_conf.h"
-#include "lwip_netconf.h"
-#include <platform/platform_stdlib.h>
-#include <lwip/sockets.h>
-
-#include "snowky_uart_protocol.h"
-#include "data_type_def.h"
-#include "log_level_print.h"
-#include "snowky_uart_task.h"
-#include "snowky_uart_cmd_handle.h"
-#include "rlt_flash_parameter.h"
-#include "rlt_queue_func.h"
-#include "cattsoft_http.h"
+#include "common.h"
 
 
 extern int socket_fd;
@@ -35,7 +15,7 @@ void rlk_tcp_recv_func(int argc, char *argv[])
 	log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
 	fd_set read_fds;
 	struct timeval timeout;
-	unsigned char rx_buff[512];
+	unsigned char rx_buff[512] = {0};
 	while(1) 
 	{
 		FD_ZERO(&read_fds);
@@ -50,7 +30,7 @@ void rlk_tcp_recv_func(int argc, char *argv[])
 			{
 				int read_size = recv(socket_fd, rx_buff, 512, 0);
 				log_printf(LOG_DEBUG"NET---->:\n");
-				print_hex(rx_buff, read_size);
+				printf("%s\n", rx_buff);
 				rlt_msg_queue_send(msg_queue, DATA_FROM_NET, rx_buff, read_size);
 			}
 		}

@@ -62,6 +62,7 @@ int rlt_msg_queue_send(xQueueHandle que,int msg_flag,unsigned char *data,unsigne
 			log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
 			return -1;
     	}
+        memset(que_msg.data, 0, data_len);
     	memcpy(que_msg.data, data, data_len);
     	que_msg.data_len = data_len;
     }
@@ -86,15 +87,12 @@ int rlt_msg_queue_send(xQueueHandle que,int msg_flag,unsigned char *data,unsigne
     return ret;
 }
 
-void rlt_queue_free_msg(t_queue_msg *ptr)
+void rlt_queue_free_msg(t_queue_msg ptr)
 {
-    if(ptr != NULL)
+    if(ptr.data != NULL) 
     {
-        if(ptr->data != NULL) 
-        {
-        	free((void *)(ptr->data));
-        	ptr->data = NULL;
-    	}
+        free((void *)(ptr.data));
+        ptr.data = NULL;
     }
 }
 

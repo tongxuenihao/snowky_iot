@@ -4,46 +4,43 @@
 	> Mail: 
 	> Created Time: Sat 28 Apr 2018 09:40:15 AM CST
  ************************************************************************/
-#include "FreeRTOS.h"
-#include "task.h"
-#include "queue.h"
-#include <stdlib.h>
-#include "timers.h"
-#include "serial_api.h"
-#include "timer_api.h"
-#include "wifi_structures.h"
-#include "wifi_conf.h"
-#include "lwip_netconf.h"
-#include <platform/platform_stdlib.h>
-#include <lwip/sockets.h>
-
-#include "snowky_uart_protocol.h"
-#include "data_type_def.h"
-#include "log_level_print.h"
-#include "snowky_uart_task.h"
-#include "snowky_uart_cmd_handle.h"
-#include "rlt_flash_parameter.h"
-#include "rlt_queue_func.h"
-#include "cattsoft_http.h"
+#include "common.h"
 
 extern xQueueHandle msg_queue;
 int socket_fd = -1;
 
-int tcp_socket_set(unsigned int server_ip, unsigned int server_port, unsigned int reconnect_flag)
+int http_status = 0;
+int m2m_status = 0;
+
+static int m2m_port;
+static char m2m_server[100] = {0};
+
+void set_http_status(int flag)
+{
+	http_status = flag;
+}
+
+void set_m2m_status(int flag)
+{
+	m2m_status = flag;
+}
+
+
+int tcp_socket_set(unsigned char *host, unsigned int server_port, unsigned int reconnect_flag)
 {
 	log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
-	unsigned char temp_data[10] = {0x01,0x02,0x03,0x04,0x05,0x05,0x06,0x07,0x08,0x09};
 	int local_fd = -1;
 	struct sockaddr_in local_addr;
-	struct sockaddr_in remote_addr;
+	static struct sockaddr_in remote_addr;
+	struct hostent *server_host;
 	static int reconnect_times = 0;
 
-	static int sev_ip;
 	static short sev_port;
 
 	if(reconnect_flag == 0)
 	{
-		sev_ip = server_ip;
+		server_host = gethostbyname(host);
+		memcpy((void *) &remote_addr.sin_addr, (void *) server_host->h_addr, server_host->h_length);
 		sev_port = server_port;
 	}
 
@@ -71,7 +68,7 @@ int tcp_socket_set(unsigned int server_ip, unsigned int server_port, unsigned in
 			}
 			remote_addr.sin_family = AF_INET;
 			remote_addr.sin_port = htons(sev_port);
-			remote_addr.sin_addr.s_addr = inet_addr("192.168.0.6");
+			remote_addr.sin_addr.s_addr = inet_addr("192.168.0.2");
 
 			if(connect(socket_fd, (struct sockaddr *)&remote_addr, sizeof(struct sockaddr)) < 0)
 			{
@@ -88,7 +85,6 @@ int tcp_socket_set(unsigned int server_ip, unsigned int server_port, unsigned in
 			return -1;
 		}
 	}
-	send(socket_fd, temp_data, 10, 0);
 	return socket_fd;
 
 }
@@ -96,6 +92,8 @@ int tcp_socket_set(unsigned int server_ip, unsigned int server_port, unsigned in
 void rlk_tcp_send_func(int argc, char *argv[])
 {
 	log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
+
+	int response_code;
 	int server_ip;
 	int ret;
 	t_queue_msg que_msg;
@@ -107,12 +105,57 @@ void rlk_tcp_send_func(int argc, char *argv[])
 			if(que_msg.msg_flag == SET_TCP_SOCKET)
 			{
 				log_printf(LOG_DEBUG"[%s]tcp socket create\n",__FUNCTION__);
-				tcp_socket_set(server_ip, HTTP_PORT,0);
+				ret = tcp_socket_set(HTTP_SERVER, HTTP_PORT,0);
+				if(ret >= 0)
+				{
+					ret = cattsoft_device_register_request(socket_fd);
+					if(ret == 1)
+					{
+						set_http_status(DEVICE_REGISTER_RES);
+					}
+				}
 			}
 
 			else if(que_msg.msg_flag == DATA_FROM_NET)
 			{
 				log_printf(LOG_DEBUG"[%s]data from net\n",__FUNCTION__);
+				if(http_status != DEVICE_CONFIG_FINISH)
+				{
+					response_code = cattsoft_get_resonse_code(que_msg.data);
+					switch(http_status)
+					{
+						case DEVICE_REGISTER_RES:
+							ret = cattsoft_http_registerion(que_msg.data, response_code);
+							if(ret == 1)
+							{
+								ret = cattsoft_device_prelogin_request(socket_fd);
+								if(ret == 1)
+								{
+									set_http_status(DEVICE_PRE_LOGIN_RES);
+								}
+							}
+							rlt_queue_free_msg(que_msg);
+							break;
+
+						case DEVICE_PRE_LOGIN_RES:
+							ret = cattsoft_http_prelogin(que_msg.data, m2m_server, &m2m_port, response_code);
+							if(ret == 1)
+							{
+								set_http_status(DEVICE_CONFIG_FINISH);
+								log_printf(LOG_DEBUG"[%s]m2m server:%s    m2m port:%d\n",__FUNCTION__,m2m_server,m2m_port);
+
+							}
+							rlt_queue_free_msg(que_msg);
+							break;
+
+						default:
+							break;
+					}
+				}
+				else
+				{
+
+				}
 			}
 		}	
 		vTaskDelay(300);	

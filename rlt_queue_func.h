@@ -21,6 +21,6 @@ enum{
 
 int rlt_msg_queue_create(xQueueHandle *mp_que,int msg_num);
 int rlt_msg_queue_send(xQueueHandle que,int msg_flag,unsigned char *data,unsigned int data_len);
-void rlt_queue_free_msg(t_queue_msg *ptr);
+void rlt_queue_free_msg(t_queue_msg ptr);
 
 #endif
