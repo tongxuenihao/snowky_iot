@@ -92,11 +92,18 @@ int tcp_socket_set(unsigned char *host, unsigned int server_port, unsigned int r
 void rlk_tcp_send_func(int argc, char *argv[])
 {
 	log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
-
+	t_dev_info *dev_info;
 	int response_code;
 	int server_ip;
 	int ret;
 	t_queue_msg que_msg;
+
+	dev_info = (t_dev_info *)malloc(sizeof(t_dev_info));
+	if(dev_info == NULL)
+	{
+		log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
+		return;
+	}
 	while(1)
 	{
 		ret = xQueueReceive(msg_queue, &que_msg, 0);
@@ -143,7 +150,18 @@ void rlk_tcp_send_func(int argc, char *argv[])
 							{
 								set_http_status(DEVICE_CONFIG_FINISH);
 								log_printf(LOG_DEBUG"[%s]m2m server:%s    m2m port:%d\n",__FUNCTION__,m2m_server,m2m_port);
-
+								//close http socket and create socket connect m2m server
+								close(socket_fd);   
+								ret = tcp_socket_set(m2m_server, m2m_port, 0);          
+								if(ret >= 0)
+								{
+									rlt_config_read((unsigned char *)dev_info, sizeof(t_dev_info));
+									ret = cattsoft_m2m_login_request(socket_fd, dev_info->did, dev_info->access_key);
+								}   
+								if(ret == 1)
+								{
+									set_m2m_status(M2M_LOGIN_RES);
+								}                
 							}
 							rlt_queue_free_msg(que_msg);
 							break;
@@ -154,7 +172,11 @@ void rlk_tcp_send_func(int argc, char *argv[])
 				}
 				else
 				{
-
+					switch(m2m_status)
+					{
+						case M2M_LOGIN_RES:
+						break;
+					}
 				}
 			}
 		}	

@@ -86,10 +86,11 @@ int cattsoft_device_register_request(int socket_fd)
             content
             );
     	tdata_len = strlen(tdata);
-    	printf("%s\n", tdata);
     	ret = send(socket_fd, tdata, tdata_len, 0);
     	if(ret > 0)
     	{
+		    log_printf(LOG_DEBUG"---->NET(%d):\n", ret);
+    		printf("%s\n", tdata);
     		free(dev_info);
     		free(tdata);
     		return 1;
@@ -141,6 +142,8 @@ int cattsoft_device_prelogin_request(int socket_fd)
     	ret = send(socket_fd, tdata, tdata_len, 0);
     	if(ret > 0)
     	{
+		    log_printf(LOG_DEBUG"---->NET(%d):\n", ret);
+    		printf("%s\n", tdata);
     		free(dev_info);
     		free(tdata);
     		return 1;

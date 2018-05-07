@@ -1,18 +1,10 @@
 /*************************************************************************
-	> File Name: snowky_uart_cmd_handle.c
+	> File Name: rlt_net_data_process.c
 	> Author: xuetong
 	> Mail: 
 	> Created Time: Tue 26 Apr 2018 09:50:28 AM CST
  ************************************************************************/
-#include "FreeRTOS.h"
-#include "task.h"
-#include "wifi_conf.h"
-#include <lwip/sockets.h>
-#include "wifi_structures.h"
-
-#include "log_level_print.h"
-#include "rlt_net_data_process.h"
-#include "data_type_def.h"
+#include "common.h"
 
 unsigned char ssid_info[512] = {0};
 unsigned int offset = 0;

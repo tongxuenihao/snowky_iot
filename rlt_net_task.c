@@ -4,31 +4,31 @@
 	> Mail: 
 	> Created Time: Fri 27 Apr 2018 02:09:24 PM CST
  ************************************************************************/
-#include "FreeRTOS.h"
-#include "task.h"
-#include "queue.h"
-#include <stdlib.h>
-#include "timers.h"
-#include "serial_api.h"
-#include "timer_api.h"
-#include "wifi_structures.h"
-#include "wifi_conf.h"
-#include "lwip_netconf.h"
-#include <platform/platform_stdlib.h>
-#include <lwip/sockets.h>
-
-#include "snowky_uart_protocol.h"
-#include "data_type_def.h"
-#include "log_level_print.h"
-#include "snowky_uart_task.h"
-#include "snowky_uart_cmd_handle.h"
-#include "rlt_flash_parameter.h"
-#include "rlt_queue_func.h"
+#include "common.h"
 
 
 xQueueHandle msg_queue;
 extern int sn_get_success;
 extern struct netif xnetif[NET_IF_NUM]; 
+
+static void wifi_no_network_cb(char* buf, int buf_len, int flags, void* userdata)
+{
+	log_printf(LOG_WARNING"[%s]no network\n",__FUNCTION__);
+	set_wifi_connect_status(WIFI_NO_NETWORK);
+}
+
+static void wifi_connected_cb( char* buf, int buf_len, int flags, void* userdata)
+{
+	log_printf(LOG_DEBUG"[%s]wifi connect\n",__FUNCTION__);
+	set_wifi_connect_status(WIFI_CONNECT);
+}
+
+static void wifi_disconn_cb( char* buf, int buf_len, int flags, void* userdata)
+{
+	log_printf(LOG_WARNING"[%s]wifi disconnect\n",__FUNCTION__);
+	set_wifi_connect_status(WIFI_DISCONN);
+}
+
 
 int connect_wifi_config(rtw_wifi_setting_t *wifi_info)
 {
@@ -38,6 +38,10 @@ int connect_wifi_config(rtw_wifi_setting_t *wifi_info)
 	int dhcp_retry = 1;	
 	int connect_retry = 0;
 	
+	wifi_reg_event_handler(WIFI_EVENT_NO_NETWORK,wifi_no_network_cb,NULL);
+	wifi_reg_event_handler(WIFI_EVENT_CONNECT, wifi_connected_cb, NULL);
+	wifi_reg_event_handler(WIFI_EVENT_DISCONNECT, wifi_disconn_cb, NULL);
+
 	wifi_disable_powersave();
 	do{
 		ret = wifi_connect((char*)wifi_info->ssid,

@@ -4,15 +4,7 @@
 	> Mail: 
 	> Created Time: Fri 27 Apr 2018 04:28:09 PM CST
  ************************************************************************/
-#include "FreeRTOS.h"
-#include "task.h"
-#include "device_lock.h"
-#include "flash_api.h"
-#include "platform_opts.h"
-#include "semphr.h"
-
-#include "log_level_print.h"
-#include "rlt_queue_func.h"
+#include "common.h"
 
 
 xSemaphoreHandle mutex_msg_queue;

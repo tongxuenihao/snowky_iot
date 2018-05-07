@@ -4,21 +4,7 @@
 	> Mail: 
 	> Created Time: Tue 24 Apr 2018 16:50:08 AM CST
  ************************************************************************/
-#include "FreeRTOS.h"
-#include "task.h"
-#include "wifi_conf.h"
-#include "lwip_netconf.h"
-#include <platform/platform_stdlib.h>
-#include <lwip/sockets.h>
-#include "main.h"
-
-#include "snowky_uart_protocol.h"
-#include "data_type_def.h"
-#include "log_level_print.h"
-#include "snowky_uart_task.h"
-#include "rlt_flash_parameter.h"
-#include "rlt_softap_config.h"
-#include "rlt_net_data_process.h"
+#include "common.h"
 
 
 #define BCAST_PORT 28899

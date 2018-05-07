@@ -5,18 +5,7 @@
 	> Created Time: Tue 24 Apr 2018 11:43:41 AM CST
  ************************************************************************/
 /* FreeRTOS includes. */
-#include "FreeRTOS.h"
-#include "task.h"
-#include "semphr.h"
-#include "freertos_pmu.h"
-#include "queue.h"
-#include <stdlib.h>
-#include "timers.h"
-#include "serial_api.h"
-#include "timer_api.h"
-
-#include "snowky_uart_task.h"
-#include "log_level_print.h"
+#include "common.h"
 
 void ilife_watchdog_irq_handler(uint32_t id)
 {

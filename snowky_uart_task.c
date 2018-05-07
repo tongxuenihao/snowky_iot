@@ -5,19 +5,7 @@
 	> Created Time: Tue 24 Apr 2018 11:48:02 AM CST
  ************************************************************************/
 /* FreeRTOS includes. */
-#include "FreeRTOS.h"
-#include "task.h"
-#include "queue.h"
-#include <stdlib.h>
-#include "timers.h"
-#include "serial_api.h"
-#include "timer_api.h"
-
-#include "snowky_uart_protocol.h"
-#include "data_type_def.h"
-#include "log_level_print.h"
-#include "snowky_uart_task.h"
-#include "snowky_uart_cmd_handle.h"
+#include "common.h"
 
 gtimer_t cmd_07_timer;
 serial_t sobj;

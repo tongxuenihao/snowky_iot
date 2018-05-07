@@ -21,15 +21,22 @@
 #include "platform/platform_stdlib.h"
 #include "lwip/sockets.h"
 #include "netdb.h"
+#include <platform/platform_stdlib.h>
+#include "main.h"
+
 
 #include "snowky_uart_protocol.h"
+#include "rlt_net_data_process.h"
 #include "data_type_def.h"
 #include "log_level_print.h"
 #include "snowky_uart_task.h"
 #include "snowky_uart_cmd_handle.h"
 #include "rlt_flash_parameter.h"
 #include "rlt_queue_func.h"
-#include "cattsoft_http.h"
+#include "cattsoft.h"
 #include "cJSON.h"
+#include "rlt_softap_config.h"
+#include "rlt_net_data_process.h"
+#include "cattsoft_mqtt.h"
 
 #endif
