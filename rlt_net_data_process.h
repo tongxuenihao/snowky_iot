@@ -15,6 +15,10 @@ enum{
 	CLOUD_DISCONN
 };
 
+#define WIFI_CONNECT_BIT   		(1<<0)
+#define WIFI_DISCONNECT_BIT 	(1<<1)
+#define CLOUD_CONNECT_BIT 		(1<<2)
+#define CLOUD_DISCONNECT_BIT 	(1<<3)
 
 
 #define NET_SYNC 0x5A

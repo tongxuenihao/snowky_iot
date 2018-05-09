@@ -23,6 +23,12 @@ typedef struct{
 	unsigned short alive;
 }t_mqtt_broke;
 
+typedef struct _var{
+	char var[4];
+	int varcbty;
+}varc;
+
+
 #define MQTT_DUP_FLAG     (1<<3)
 #define MQTT_QOS0_FLAG    (0<<1)
 #define MQTT_QOS1_FLAG    (1<<1)
@@ -51,3 +57,33 @@ typedef struct{
 #define MQTT_MSG_PINGREQ      (12<<4)
 #define MQTT_MSG_PINGRESP     (13<<4)
 #define MQTT_MSG_DISCONNECT   (14<<4)
+
+/** Extract the message type from buffer.
+ * @param buffer Pointer to the packet.
+ *
+ * @return Message Type byte.
+ */
+#define MQTTParseMessageType(buffer) ( *buffer & 0xF0 )
+
+/** Indicate if it is a duplicate packet.
+ * @param buffer Pointer to the packet.
+ *
+ * @retval   0 Not duplicate.
+ * @retval !=0 Duplicate.
+ */
+#define MQTTParseMessageDuplicate(buffer) ( *buffer & 0x08 )
+
+/** Extract the message QoS level.
+ * @param buffer Pointer to the packet.
+ *
+ * @return QoS Level (0, 1 or 2).
+ */
+#define MQTTParseMessageQos(buffer) ( (*buffer & 0x06) >> 1 )
+
+/** Indicate if this packet has a retain flag.
+ * @param buffer Pointer to the packet.
+ *
+ * @retval   0 Not duplicate.
+ * @retval !=0 Duplicate.
+ */
+#define MQTTParseMessageRetain(buffer) ( *buffer & 0x01 )

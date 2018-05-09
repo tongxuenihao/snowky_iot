@@ -11,6 +11,9 @@ xQueueHandle msg_queue;
 extern int sn_get_success;
 extern struct netif xnetif[NET_IF_NUM]; 
 
+unsigned short module_status = 0;
+
+void set_wifi_status_bit(unsigned short wifi_status_mode, int flag);
 static void wifi_no_network_cb(char* buf, int buf_len, int flags, void* userdata)
 {
 	log_printf(LOG_WARNING"[%s]no network\n",__FUNCTION__);
@@ -21,12 +24,58 @@ static void wifi_connected_cb( char* buf, int buf_len, int flags, void* userdata
 {
 	log_printf(LOG_DEBUG"[%s]wifi connect\n",__FUNCTION__);
 	set_wifi_connect_status(WIFI_CONNECT);
+	set_wifi_status_bit(WIFI_CONNECT_BIT, 1);
 }
 
 static void wifi_disconn_cb( char* buf, int buf_len, int flags, void* userdata)
 {
 	log_printf(LOG_WARNING"[%s]wifi disconnect\n",__FUNCTION__);
 	set_wifi_connect_status(WIFI_DISCONN);
+	set_wifi_status_bit(WIFI_CONNECT_BIT, 0);
+}
+
+void set_wifi_status_bit(unsigned short wifi_status_mode, int flag)
+{
+	if(flag == 1)
+	{
+		module_status |= wifi_status_mode;
+	}
+	else
+	{
+		module_status &=~ wifi_status_mode;
+	}
+}
+
+int wifi_status_compare()
+{
+	static unsigned short temp_wifi_status;
+	if(temp_wifi_status != module_status)
+	{
+		temp_wifi_status = module_status;
+		return 1;
+	}
+	return -1;
+}
+
+void wifi_staus_print()
+{
+	printf("\r\n");
+	if(module_status & WIFI_CONNECT_BIT)
+	{
+		printf("wifi status:  connect\n");
+	}
+	else
+	{
+		printf("wifi status:  disconnect\n");
+	}
+	if(module_status & CLOUD_CONNECT_BIT)
+	{
+		printf("cloud status: connect\n");
+	}
+	else
+	{
+		printf("cloud status: disconnect\n");
+	}
 }
 
 
@@ -134,9 +183,12 @@ connect_ap:
 null_model:
 	while(1)
 	{
+		//if(wifi_status_compare())
+		//{
+		wifi_staus_print();
+		//}
 		vTaskDelay(3000);
 	}
-
 }
 
 int rlk_net_task_init()

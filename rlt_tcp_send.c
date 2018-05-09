@@ -93,6 +93,7 @@ void rlk_tcp_send_func(int argc, char *argv[])
 {
 	log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
 	t_dev_info *dev_info;
+	unsigned char mqtt_msg_type;
 	int response_code;
 	int server_ip;
 	int ret;
@@ -123,6 +124,12 @@ void rlk_tcp_send_func(int argc, char *argv[])
 				}
 			}
 
+			else if(que_msg.msg_flag == DATA_FROM_UART)
+			{
+				rlt_config_read((unsigned char *)dev_info, sizeof(t_dev_info));
+				cattsoft_uart_data_handle(que_msg.data, dev_info->did, que_msg.data_len);
+			}
+
 			else if(que_msg.msg_flag == DATA_FROM_NET)
 			{
 				log_printf(LOG_DEBUG"[%s]data from net\n",__FUNCTION__);
@@ -133,7 +140,7 @@ void rlk_tcp_send_func(int argc, char *argv[])
 					{
 						case DEVICE_REGISTER_RES:
 							ret = cattsoft_http_registerion(que_msg.data, response_code);
-							if(ret == 1)
+							if(ret == 1) 			
 							{
 								ret = cattsoft_device_prelogin_request(socket_fd);
 								if(ret == 1)
@@ -170,13 +177,76 @@ void rlk_tcp_send_func(int argc, char *argv[])
 							break;
 					}
 				}
-				else
+
+				else if(http_status == DEVICE_CONFIG_FINISH && m2m_status != M2M_RUNNING)
 				{
 					switch(m2m_status)
 					{
 						case M2M_LOGIN_RES:
-						break;
+							ret = cattsoft_m2m_login_response(que_msg.data);
+							if(ret == 1)
+							{
+								ret = cattsoft_m2m_subscribe_topic_request(dev_info->did, 1);
+								if(ret == 1)
+								{
+									set_m2m_status(M2M_SUBSCRIPT_TOPIC1_RES);
+								}
+							}
+							rlt_queue_free_msg(que_msg);
+							break;
+
+						case M2M_SUBSCRIPT_TOPIC1_RES:
+							ret = cattsoft_m2m_subscribe_response(que_msg.data);
+							if(ret == 1)
+							{
+								ret = cattsoft_m2m_subscribe_topic_request(dev_info->did, 2);
+								if(ret == 1)
+								{
+									set_m2m_status(M2M_SUBSCRIPT_TOPIC2_RES);
+								}
+							}
+							rlt_queue_free_msg(que_msg);
+							break;
+
+
+						case M2M_SUBSCRIPT_TOPIC2_RES:
+							ret = cattsoft_m2m_subscribe_response(que_msg.data);
+							if(ret == 1)
+							{
+								ret = cattsoft_m2m_subscribe_topic_request(dev_info->did, 3);
+								if(ret == 1)
+								{
+									set_m2m_status(M2M_SUBSCRIPT_TOPIC3_RES);
+								}
+							}
+							rlt_queue_free_msg(que_msg);
+							break;
+
+						case M2M_SUBSCRIPT_TOPIC3_RES:
+							ret = cattsoft_m2m_subscribe_response(que_msg.data);
+							if(ret == 1)
+							{
+								set_m2m_status(M2M_RUNNING);
+								set_cloud_connect_status(CLOUD_CONNECT);
+								//start heartbeat timer
+							}
+							rlt_queue_free_msg(que_msg);
+							break;
+
+						default:
+							break;
 					}
+				}
+				else
+				{
+					mqtt_msg_type = MQTTParseMessageType(que_msg.data);
+					switch(mqtt_msg_type)
+					{
+						case MQTT_MSG_PINGRESP:
+							log_printf(LOG_DEBUG"[%s]mqtt heartbeat response\n",__FUNCTION__);
+							break;
+					}
+
 				}
 			}
 		}	

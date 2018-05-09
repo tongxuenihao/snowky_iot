@@ -87,9 +87,9 @@ int cattsoft_device_register_request(int socket_fd)
             );
     	tdata_len = strlen(tdata);
     	ret = send(socket_fd, tdata, tdata_len, 0);
-    	if(ret > 0)
+    	if(ret >= 0)
     	{
-		    log_printf(LOG_DEBUG"---->NET(%d):\n", ret);
+		    log_printf(LOG_DEBUG"---->NET:\n");
     		printf("%s\n", tdata);
     		free(dev_info);
     		free(tdata);
@@ -140,9 +140,9 @@ int cattsoft_device_prelogin_request(int socket_fd)
             "Content-Type: application/x-www-form-urlencoded",kCRLFLineEnding);
     	tdata_len = strlen(tdata);
     	ret = send(socket_fd, tdata, tdata_len, 0);
-    	if(ret > 0)
+    	if(ret >= 0)
     	{
-		    log_printf(LOG_DEBUG"---->NET(%d):\n", ret);
+		    log_printf(LOG_DEBUG"---->NET:\n");
     		printf("%s\n", tdata);
     		free(dev_info);
     		free(tdata);
@@ -270,3 +270,5 @@ int cattsoft_http_prelogin(unsigned char *data, char *host, int *port, int respo
 	}
 	return -1;
 }
+
+
