@@ -31,7 +31,7 @@ void snowky_example_thread(int argc, char *argv[])
 
 	while(1)
 	{
-		printf("Available heap 0x%x\n",xPortGetFreeHeapSize());	
+		printf(LOG_DEBUG"Available heap 0x%x\n",xPortGetFreeHeapSize());	
 		vTaskDelay(3000);
 	}
 }

@@ -561,3 +561,22 @@ int cattsoft_uart_data_handle(unsigned char *rdata, char *dev_did, unsigned int 
 {
     return mqtt_publish_with_qos(&mqtt_broker, rdata, rdata_len, dev_did, 1, &mqtt_message_id);                 //qos:1
 }
+
+
+int mqtt_ping(int socket_fd)
+{
+    int ret;
+    unsigned char ping_packet[] = {MQTT_MSG_PINGREQ, 0x00};
+    ret = send(socket_fd, ping_packet, sizeof(ping_packet), 0);
+    if(ret > 0)
+    {
+        log_printf(LOG_DEBUG"[%s]mqtt heartbeat send\n",__FUNCTION__);
+        return 1;
+    }
+    return -1;
+}
+
+int cattsoft_m2m_heartbeat_request(int socket_fd)
+{
+    return mqtt_ping(socket_fd);
+}

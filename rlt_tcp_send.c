@@ -6,11 +6,19 @@
  ************************************************************************/
 #include "common.h"
 
+
+TimerHandle_t heartbeat_timer;
 extern xQueueHandle msg_queue;
 int socket_fd = -1;
 
 int http_status = 0;
 int m2m_status = 0;
+int heartbeat_miss = 0;
+int get_heartbeat = 1;
+
+int heartbeat_send_tick;
+int heartbeat_wait_tick;
+int heartbeat_miss_cnt = 0;
 
 static int m2m_port;
 static char m2m_server[100] = {0};
@@ -25,6 +33,48 @@ void set_m2m_status(int flag)
 	m2m_status = flag;
 }
 
+int get_heartbeat_res()
+{
+	return get_heartbeat;
+}
+
+void set_heartbeat_res(int flag)
+{
+	get_heartbeat = flag;
+}
+
+void start_response_tick()
+{
+	heartbeat_send_tick = xTaskGetTickCount();
+}
+
+void heartbeat_handle(xTimerHandle pxTimer)
+{
+	cattsoft_m2m_heartbeat_request(socket_fd);
+	set_heartbeat_res(0);
+	start_response_tick();
+}
+
+int set_heartbeat_init()
+{
+	heartbeat_timer = xTimerCreate("heart beat", 15 * 1000, pdTRUE, NULL, heartbeat_handle);
+	xTimerStart(heartbeat_timer, 0);
+	return 1;
+}
+
+int cattsoft_mqtt_socket_reset()
+{
+	int ret;
+	if(socket_fd != -1)
+	{
+		close(socket_fd);
+		socket_fd = -1;
+	}
+	set_cloud_connect_status(CLOUD_DISCONNECT);
+	set_wifi_status_bit(CLOUD_CONNECT_BIT, 0);
+	ret = tcp_socket_set(0, 0, 1);
+	return ret;
+}
 
 int tcp_socket_set(unsigned char *host, unsigned int server_port, unsigned int reconnect_flag)
 {
@@ -126,8 +176,11 @@ void rlk_tcp_send_func(int argc, char *argv[])
 
 			else if(que_msg.msg_flag == DATA_FROM_UART)
 			{
-				rlt_config_read((unsigned char *)dev_info, sizeof(t_dev_info));
-				cattsoft_uart_data_handle(que_msg.data, dev_info->did, que_msg.data_len);
+				log_printf(LOG_DEBUG"[%s]data from uart\n",__FUNCTION__);
+				send(socket_fd, que_msg.data, que_msg.data_len, 0);
+				//rlt_config_read((unsigned char *)dev_info, sizeof(t_dev_info));
+				//cattsoft_uart_data_handle(que_msg.data, dev_info->did, que_msg.data_len);
+				rlt_queue_free_msg(que_msg);
 			}
 
 			else if(que_msg.msg_flag == DATA_FROM_NET)
@@ -228,7 +281,8 @@ void rlk_tcp_send_func(int argc, char *argv[])
 							{
 								set_m2m_status(M2M_RUNNING);
 								set_cloud_connect_status(CLOUD_CONNECT);
-								//start heartbeat timer
+								set_wifi_status_bit(CLOUD_CONNECT_BIT, 1);
+								set_heartbeat_init();
 							}
 							rlt_queue_free_msg(que_msg);
 							break;
@@ -244,12 +298,38 @@ void rlk_tcp_send_func(int argc, char *argv[])
 					{
 						case MQTT_MSG_PINGRESP:
 							log_printf(LOG_DEBUG"[%s]mqtt heartbeat response\n",__FUNCTION__);
+							set_heartbeat_res(1);
+							heartbeat_miss_cnt = 0;
 							break;
 					}
-
 				}
 			}
-		}	
+		}
+
+		else if(m2m_status == M2M_RUNNING)	
+		{
+			if(!get_heartbeat_res())
+			{
+				heartbeat_wait_tick = xTaskGetTickCount();
+				if(heartbeat_wait_tick - heartbeat_send_tick > HEARTBEAT_WAIT_RESP_TIME)
+				{
+					heartbeat_miss_cnt++;
+					set_heartbeat_res(1);
+					log_printf(LOG_DEBUG"[%s]mqtt heartbeat miss\n",__FUNCTION__);
+				}
+			}
+			if(heartbeat_miss_cnt > 3)
+			{
+				log_printf(LOG_DEBUG"[%s]reset socket connect\n",__FUNCTION__);
+				ret = cattsoft_mqtt_socket_reset();
+				if(ret >= 0)
+				{
+					set_cloud_connect_status(CLOUD_CONNECT);
+					set_wifi_status_bit(CLOUD_CONNECT_BIT, 1);
+					heartbeat_miss_cnt = 0;
+				}
+			}
+		}
 		vTaskDelay(300);	
 	}
 }

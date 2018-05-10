@@ -4,6 +4,10 @@
 	> Mail: 
 	> Created Time: Mon 07 May 2018 02:24:20 PM CST
  ************************************************************************/
+#ifndef CATTSOFT_MQTT__H
+#define CATTSOFT_MQTT__H
+
+
 #define MQTT_USER_NAME_LEN 24
 #define MQTT_PASSWORD_LEN 24
 
@@ -28,6 +32,7 @@ typedef struct _var{
 	int varcbty;
 }varc;
 
+#define HEARTBEAT_WAIT_RESP_TIME 5000
 
 #define MQTT_DUP_FLAG     (1<<3)
 #define MQTT_QOS0_FLAG    (0<<1)
@@ -87,3 +92,6 @@ typedef struct _var{
  * @retval !=0 Duplicate.
  */
 #define MQTTParseMessageRetain(buffer) ( *buffer & 0x01 )
+
+
+#endif

@@ -62,19 +62,19 @@ void wifi_staus_print()
 	printf("\r\n");
 	if(module_status & WIFI_CONNECT_BIT)
 	{
-		printf("wifi status:  connect\n");
+		printf(LOG_DEBUG"wifi status:  connect\n");
 	}
 	else
 	{
-		printf("wifi status:  disconnect\n");
+		printf(LOG_WARNING"wifi status:  disconnect\n");
 	}
 	if(module_status & CLOUD_CONNECT_BIT)
 	{
-		printf("cloud status: connect\n");
+		printf(LOG_DEBUG"cloud status: connect\n");
 	}
 	else
 	{
-		printf("cloud status: disconnect\n");
+		printf(LOG_WARNING"cloud status: disconnect\n");
 	}
 }
 

@@ -7,6 +7,8 @@
 /* FreeRTOS includes. */
 #include "common.h"
 
+extern xQueueHandle msg_queue;
+
 gtimer_t cmd_07_timer;
 serial_t sobj;
 unsigned char recv_char_temp = 0;
@@ -89,41 +91,45 @@ void uart_msg_handle(unsigned char *data, unsigned int data_len)
 	switch(msg_type)
 	{
 		case CMD_DEVICE_CONTROL:
-		post_rawdata_flag = 1;
-		break;
+			post_rawdata_flag = 1;
+			break;
 
 		case CMD_GET_DEVICE_STATUS:
-		post_rawdata_flag = 1;
-		break;
+			post_rawdata_flag = 1;
+			break;
 
 		case CMD_REQUEST_NET_STATUS:
-		uart_cmd_0x06_handle();
-		break;
+			uart_cmd_0x06_handle();
+			break;
 
 		case CMD_GET_SN:
-		log_printf(LOG_DEBUG"[%s]get cmd:0x07\n",__FUNCTION__);
-		uart_cmd_0x07_handle(data, data_len);
-		break;
+			log_printf(LOG_DEBUG"[%s]get cmd:0x07\n",__FUNCTION__);
+			uart_cmd_0x07_handle(data, data_len);
+			break;
 
 		case CMD_REQUEST_WIFI_REBOOT:
-		uart_cmd_0x08_handle();
-		break;
+			uart_cmd_0x08_handle();
+			break;
 
 		case CMD_GET_MCU_VERSION:
-		uart_cmd_0x09_handle(data, data_len);
-		break;
+			uart_cmd_0x09_handle(data, data_len);
+			break;
 
 		case CMD_DEVICE_STATUS_UPLOAD:
-		post_rawdata_flag = 1;
-		break;
+			post_rawdata_flag = 1;
+			break;
 
 		case CMD_REQUEST_WIFI_CONFIG:
-		log_printf(LOG_DEBUG"[%s]get cmd:0x11\n",__FUNCTION__);
-		uart_cmd_0x0C_handle();
-		break;
+			log_printf(LOG_DEBUG"[%s]get cmd:0x11\n",__FUNCTION__);
+			uart_cmd_0x0C_handle();
+			break;
 
 		default:
-		break;
+			break;
+	}
+	if(post_rawdata_flag)
+	{
+		rlt_msg_queue_send(msg_queue, DATA_FROM_UART, data, data_len);
 	}
 }
 
