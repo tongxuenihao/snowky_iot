@@ -68,6 +68,74 @@ unsigned short mqtt_parse_rem_len(unsigned char *buf)
     return value;
 }
 
+unsigned short mqtt_parse_pub_topic_ptr(unsigned char* buf, unsigned char **topic_ptr) 
+{
+    unsigned short len = 0;
+    if(MQTTParseMessageType(buf) == MQTT_MSG_PUBLISH) {
+        uint8_t rlb = mqtt_num_rem_len_bytes(buf);
+        len = *(buf+1+rlb)<<8;  // MSB of topic UTF
+        len |= *(buf+1+rlb+1);  // LSB of topic UTF
+        *topic_ptr = (buf + (1+rlb+2));
+    } 
+    else 
+    {
+        *topic_ptr = NULL;
+    }
+    return len;
+}
+
+
+unsigned short mqtt_parse_pub_topic(unsigned char* buf, unsigned char* topic) 
+{
+    unsigned char* ptr;
+    unsigned short topic_len = mqtt_parse_pub_topic_ptr(buf, &ptr);
+    if(topic_len != 0 && ptr != NULL) 
+    {
+        memcpy(topic, ptr, topic_len);
+    }
+
+    return topic_len;
+}
+
+
+unsigned short mqtt_parse_pub_msg_ptr(const unsigned char* buf, const unsigned char **msg_ptr) 
+{
+    unsigned short len = 0;
+    if(MQTTParseMessageType(buf) == MQTT_MSG_PUBLISH) 
+    {
+        // message starts at
+        // fixed header length + Topic (UTF encoded) + msg id (if QoS>0)
+        uint8_t rlb = mqtt_num_rem_len_bytes(buf);
+        uint8_t offset = (*(buf+1+rlb))<<8; // topic UTF MSB
+        offset |= *(buf+1+rlb+1);           // topic UTF LSB
+        offset += (1+rlb+2);                // fixed header + topic size
+
+        if(MQTTParseMessageQos(buf)) {
+            offset += 2;                    // add two bytes of msg id
+        }
+
+        *msg_ptr = (buf + offset);
+        len = mqtt_parse_rem_len(buf) - (offset-(rlb+1));
+    } 
+    else 
+    {
+        *msg_ptr = NULL;
+    }
+    return len;
+}
+
+unsigned short mqtt_parse_publish_msg(const unsigned char* buf, unsigned char** msg) 
+{
+    unsigned char* ptr;
+    unsigned short msg_len = mqtt_parse_pub_msg_ptr(buf, (const uint8_t **)&ptr);
+
+    if(msg_len != 0 && ptr != NULL) 
+    {
+        (*msg)=ptr;
+    }
+
+    return msg_len;
+}
 
 int send_packet(int socket_fd, unsigned char *buff, unsigned int buff_len)
 {
@@ -579,4 +647,24 @@ int mqtt_ping(int socket_fd)
 int cattsoft_m2m_heartbeat_request(int socket_fd)
 {
     return mqtt_ping(socket_fd);
+}
+
+void cattsoft_dispatch_publish_packet(unsigned char *rdata, unsigned int rdata_len)
+{
+    unsigned char topic[128];
+    unsigned int topiclen;
+    unsigned char *payload;
+    unsigned int payload_len;
+
+    topiclen = mqtt_parse_pub_topic(rdata, topic);
+    topic[topiclen] = '\0';
+    payload_len = mqtt_parse_publish_msg(rdata, &payload); 
+
+    log_printf(LOG_INFO"[%s]cloud data from topic :%s\n",topic);
+
+    print_hex(payload, payload_len);
+    if(strncmp((const char*)topic,"ser2dev/req/",strlen("ser2dev/req/"))==0)
+    { 
+        uart_data_send(rdata, rdata_len);
+    }
 }

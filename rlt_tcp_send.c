@@ -215,7 +215,7 @@ void rlk_tcp_send_func(int argc, char *argv[])
 								ret = tcp_socket_set(m2m_server, m2m_port, 0);          
 								if(ret >= 0)
 								{
-									rlt_config_read((unsigned char *)dev_info, sizeof(t_dev_info));
+									rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
 									ret = cattsoft_m2m_login_request(socket_fd, dev_info->did, dev_info->access_key);
 								}   
 								if(ret == 1)
@@ -300,6 +300,10 @@ void rlk_tcp_send_func(int argc, char *argv[])
 							log_printf(LOG_DEBUG"[%s]mqtt heartbeat response\n",__FUNCTION__);
 							set_heartbeat_res(1);
 							heartbeat_miss_cnt = 0;
+							break;
+
+						case MQTT_MSG_PUBLISH:
+							cattsoft_dispatch_publish_packet(que_msg.data, que_msg.data_len);
 							break;
 					}
 				}

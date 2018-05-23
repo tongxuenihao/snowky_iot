@@ -95,10 +95,10 @@ void uart_cmd_0x07_handle(unsigned char *data, unsigned int data_len)
 		return;
 	}
 	memset((unsigned char *)dev_info, 0, sizeof(t_dev_info));
-	rlt_config_read((unsigned char *)dev_info, sizeof(t_dev_info));
+	rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
 	memcpy(dev_info->dev_sn, &data[10], DEV_SN_LEN);
 	dev_info->dev_sn[DEV_SN_LEN] = '\0';
-	rlt_config_write((unsigned char *)dev_info, sizeof(t_dev_info));
+	rlt_device_info_write((unsigned char *)dev_info, sizeof(t_dev_info));
 	free(dev_info);
 }
 
@@ -134,10 +134,10 @@ void uart_cmd_0x09_handle(unsigned char *data, unsigned int data_len)
 		return;
 	}
 	memset((unsigned char *)dev_info, 0, sizeof(t_dev_info));
-	rlt_config_read((unsigned char *)dev_info, sizeof(t_dev_info));
+	rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
 	memcpy(dev_info->dev_ver, &data[10], DEV_VER_LEN);
 	dev_info->dev_sn[DEV_VER_LEN] = '\0';
-	rlt_config_write((unsigned char *)dev_info, sizeof(t_dev_info));
+	rlt_device_info_write((unsigned char *)dev_info, sizeof(t_dev_info));
 	free(dev_info);
 }
 
@@ -157,6 +157,7 @@ void uart_cmd_0x0C_handle()
 	memset(tdata, 0, tdata_len);
 	tdata_len = uart_packet_build(CMD_REQUEST_WIFI_CONFIG, msg_body, 3, tdata);
 	uart_data_send(tdata, tdata_len);
+	rlt_wifi_info_clean();
 	log_printf(LOG_DEBUG"[%s]----------------->enter wifi config\n",__FUNCTION__);
 	rlt_softap_config_entry();
 	free(tdata);	

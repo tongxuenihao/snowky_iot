@@ -79,6 +79,23 @@ void wifi_staus_print()
 }
 
 
+void rlt_device_discover_func(int argc, char *argv[])
+{
+	rlt_broadcast_func(NULL);
+	vTaskDelete(NULL);
+}
+
+
+int rlt_device_discover_func_entry()
+{
+	xTaskHandle app_task_handle = NULL;
+
+	if(xTaskCreate((TaskFunction_t)rlt_device_discover_func, (char const *)"rlt tcp server start", 1024, NULL, tskIDLE_PRIORITY + 5, &app_task_handle) != pdPASS) {
+		printf("xTaskCreate failed\n");	
+	}
+	return 0;
+}
+
 int connect_wifi_config(rtw_wifi_setting_t *wifi_info)
 {
 	unsigned char *ip_str[16] = {0};
@@ -136,6 +153,7 @@ Try_again:
 
 void net_event_init()
 {
+	rlt_device_discover_func_entry();
 	rlt_msg_queue_create(&msg_queue, 20);
 	rlt_msg_queue_send(msg_queue, SET_TCP_SOCKET, NULL, 0);
 	rlk_tcp_send_entry();

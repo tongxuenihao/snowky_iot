@@ -58,7 +58,7 @@ void net_packet_build(unsigned short msg_type, unsigned short packet_sn, unsigne
 	*(unsigned short *)&packet[4] = htons(msgbody_len + NET_PACKET_HEAD);
 	*(unsigned short *)&packet[6] = htons(msg_type);
 	*(unsigned short *)&packet[8] = htons(packet_sn);
-	print_hex(packet,sizeof(packet));
+	//print_hex(packet,sizeof(packet));
 	//memcpy(&data[16], did, DID_LEN);            //need to add did
 	memcpy(&packet[24], msg_body, msgbody_len);
 	*(unsigned short *)&packet[msgbody_len + NET_PACKET_HEAD -2] = htons(CRC_Calculate(msgbody_len + 22, &packet[2]));
@@ -88,6 +88,7 @@ void set_wifi_info_fill_in(unsigned char ssid_lenth, rtw_security_t security, un
 	offset += ssid_lenth;
 }
 
+
 static rtw_result_t app_scan_result_handler( rtw_scan_handler_result_t* malloced_scan_result )
 {
 	static int ap_num = 0;
@@ -103,6 +104,7 @@ static rtw_result_t app_scan_result_handler( rtw_scan_handler_result_t* malloced
 	}
 	return RTW_SUCCESS;
 }
+
 
 int wifi_info_parse(unsigned char *data)
 {
@@ -177,6 +179,7 @@ void cmd_0x0061_handle(unsigned short packet_sn, unsigned int socket_fd)
 	free(tdata);
 }
 
+
 void cmd_0x0062_handle(unsigned char *data, unsigned short packet_sn, unsigned int socket_fd)
 {
 	int ret;
@@ -215,6 +218,7 @@ void cmd_0x0063_handle()
                                                         //todo
 }               
 
+
 void net_data_handle(unsigned short msg_type, unsigned short packet_sn, unsigned char *msg_body, unsigned int socket_fd)
 {
 	switch(msg_type)
@@ -234,6 +238,7 @@ void net_data_handle(unsigned short msg_type, unsigned short packet_sn, unsigned
 		break;
 	}
 }
+
 
 void net_data_parse(unsigned char *data, unsigned int data_len, unsigned int socket_fd)
 {

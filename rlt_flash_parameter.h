@@ -24,8 +24,5 @@ typedef struct dev_info{
 	unsigned char access_key[33];
 }t_dev_info;
 
-int rlt_config_write(const char *buffer, int length);
-int rlt_config_read(char *buffer, int length);
-
 
 #endif

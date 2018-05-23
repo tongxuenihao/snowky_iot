@@ -55,7 +55,7 @@ int cattsoft_device_register_request(int socket_fd)
 		return -1;
 	}
 	memset((unsigned char *)dev_info, 0, sizeof(t_dev_info));
-	rlt_config_read((unsigned char *)dev_info, sizeof(t_dev_info));
+	rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
 	mac = LwIP_GetMAC(&xnetif[0]);
 	sprintf(macstr, "%02x%02x%02x%02x%02x%02x",mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 	json_Object = cJSON_CreateObject();
@@ -116,7 +116,7 @@ int cattsoft_device_prelogin_request(int socket_fd)
 		return -1;
 	}
 	memset((unsigned char *)dev_info, 0, sizeof(t_dev_info));
-	rlt_config_read((unsigned char *)dev_info, sizeof(t_dev_info));
+	rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
 	json_Object = cJSON_CreateObject();
 	if(json_Object != NULL)
 	{
@@ -184,12 +184,12 @@ int cattsoft_http_registerion_parse(unsigned char *data)
 			return -1;
 		}
 		memset((unsigned char *)dev_info, 0, sizeof(t_dev_info));
-		rlt_config_read((unsigned char *)dev_info, sizeof(t_dev_info));
+		rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
 		memcpy((unsigned char *)dev_info->did, cJSON_GetObjectItem(json_Object, "devid")->valuestring, DID_LEN);
 		dev_info->did[DID_LEN] = '\0';
 		memcpy((unsigned char *)dev_info->access_token, cJSON_GetObjectItem(json_Object, "accessToken")->valuestring, TOKEN_LEN);
 		dev_info->access_token[TOKEN_LEN] = '\0';
-		rlt_config_write((unsigned char *)dev_info, sizeof(t_dev_info));
+		rlt_device_info_write((unsigned char *)dev_info, sizeof(t_dev_info));
 		free(dev_info);
 	}
 	return 1;
@@ -229,10 +229,10 @@ int cattsoft_http_prelogin_parse(unsigned char *data, char *host, int *port)
 		memcpy(host, cJSON_GetObjectItem(json_Object, "mqttservIp")->valuestring, strlen(cJSON_GetObjectItem(json_Object, "mqttservIp")->valuestring));
 		*port = atoi(cJSON_GetObjectItem(json_Object, "mqttservPort")->valuestring);
 		memset((unsigned char *)dev_info, 0, sizeof(t_dev_info));
-		rlt_config_read((unsigned char *)dev_info, sizeof(t_dev_info));
+		rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
 		memcpy((unsigned char *)dev_info->access_key, cJSON_GetObjectItem(json_Object, "mqttservPwd")->valuestring, ACCESS_KEY);
 		dev_info->access_key[ACCESS_KEY] = '\0';
-		rlt_config_write((unsigned char *)dev_info, sizeof(t_dev_info));
+		rlt_device_info_write((unsigned char *)dev_info, sizeof(t_dev_info));
 		free(dev_info);
 	}
 	return 1;

@@ -13,7 +13,7 @@
 #include "log_level_print.h"
 #include "rlt_flash_parameter.h"
 
-int rlt_config_write(const char *buffer, int length)
+int rlt_device_info_write(const char *buffer, int length)
 {
 	int ret=0;
 	flash_t flash_config;
@@ -38,7 +38,7 @@ int rlt_config_write(const char *buffer, int length)
 }
 
 
-int rlt_config_read(char *buffer, int length)
+int rlt_device_info_read(char *buffer, int length)
 {
 	int ret=0;
 	flash_t flash_config;
@@ -56,10 +56,16 @@ int rlt_config_read(char *buffer, int length)
 		log_printf(LOG_WARNING"[%s]read open file fail\n",__FUNCTION__);
 		return -1;
 	}
-		log_printf(LOG_WARNING"[%s]read open file successful\n",__FUNCTION__);
+	log_printf(LOG_WARNING"[%s]read open file successful\n",__FUNCTION__);
 	return 0;
 }
 
+void rlt_device_info_clean()
+{
+	flash_t flash_config;
+	flash_erase_sector(&flash_config, CONFIG_DATA_ADDRESS);
+	return;
+}
 
 int rlt_wifi_info_write(const char *buffer, int length)
 {
@@ -108,6 +114,11 @@ int rlt_wifi_info_read(char *buffer, int length)
 	return 0;
 }
 
-
+void rlt_wifi_info_clean()
+{
+	flash_t flash_config;
+	flash_erase_sector(&flash_config, FAST_RECONNECT_DATA);
+	return;
+}
 
 

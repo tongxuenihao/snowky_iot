@@ -179,12 +179,45 @@ int rlt_tcp_server_entry()
 {
 	xTaskHandle app_task_handle = NULL;
 
-	if(xTaskCreate((TaskFunction_t)rlt_tcp_server_start, (char const *)"rlt tcp server start", 1024*3, NULL, tskIDLE_PRIORITY + 5, &app_task_handle) != pdPASS) {
+	if(xTaskCreate((TaskFunction_t)rlt_tcp_server_start, (char const *)"rlt tcp server start", 1024*2, NULL, tskIDLE_PRIORITY + 5, &app_task_handle) != pdPASS) {
 		printf("xTaskCreate failed\n");	
 	}
 	return 0;
 }
  
+int broadcast_packet_build(unsigned char *ap_name, unsigned char *msg_body)
+{
+	unsigned char *ip;
+	unsigned char *mac;
+	unsigned int msgbody_len;
+	if(ap_name != NULL)
+	{
+		msgbody_len = 15 + strlen(ap_name);
+		memset(msg_body, 0, msgbody_len);
+		ip = LwIP_GetIP(&xnetif[0]);
+		memcpy(msg_body, ip, 4);
+		*(unsigned int *)&msg_body[4] = htonl(BCAST_PORT);
+		mac = LwIP_GetMAC(&xnetif[0]);
+		memcpy(&msg_body[8], mac, 6);
+		msg_body[14] = strlen(ap_name);
+		strcpy(&msg_body[15], ap_name);
+		return msgbody_len;
+	}
+
+	else
+	{
+		msgbody_len = 15;
+		memset(msg_body, 0, msgbody_len);
+		ip = LwIP_GetIP(&xnetif[0]);
+		memcpy(msg_body, ip, 4);
+		mac = LwIP_GetMAC(&xnetif[0]);
+		memcpy(&msg_body[8], mac, 6);
+		return msgbody_len;
+	}
+
+}
+
+
 void rlt_broadcast_func(unsigned char *ap_name)
 {
 	struct sockaddr_in to;
@@ -200,7 +233,14 @@ void rlt_broadcast_func(unsigned char *ap_name)
 	{
 		log_printf(LOG_WARNING"[%s]udp init error\n",__FUNCTION__);
 	}
-	msgbody_len = 15 + strlen(ap_name);
+	if(ap_name == NULL)
+	{
+		msgbody_len = 14;
+	}
+	else
+	{
+		msgbody_len = 15 + strlen(ap_name);
+	}
 	msg_body = (unsigned char *)malloc(msgbody_len);
 	if(msg_body == NULL)
 	{
@@ -208,13 +248,17 @@ void rlt_broadcast_func(unsigned char *ap_name)
 		return;
 	}
 	ip = LwIP_GetIP(&xnetif[0]);
-	
-	memcpy(msg_body, ip, 4);
+	memset(msg_body, 0, msgbody_len);
+	memcpy(msg_body, ip, 4);                                    //little endian
 	*(unsigned int *)&msg_body[4] = htonl(BCAST_PORT);
 	mac = LwIP_GetMAC(&xnetif[0]);
 	memcpy(&msg_body[8], mac, 6);
-	msg_body[14] = strlen(ap_name);
-	strcpy(&msg_body[15], ap_name);
+	if(ap_name != NULL)
+	{
+		*(unsigned int *)&msg_body[4] = htonl(BCAST_PORT);
+		msg_body[14] = strlen(ap_name);
+		strcpy(&msg_body[15], ap_name);
+	}
 
 	tdata_len = NET_PACKET_HEAD + msgbody_len;
 	tdata = (unsigned char *)malloc(tdata_len);
@@ -229,10 +273,11 @@ void rlt_broadcast_func(unsigned char *ap_name)
 	to.sin_addr.s_addr = htonl(0xffffffff);
 	while(1)
 	{
-		//log_printf(LOG_DEBUG"---->APP:\n");             //debug,mark
-		//net_packet_build(WIFI_BROADCAST, get_new_packet_sn(), msg_body, msgbody_len, tdata);
-		//print_hex(tdata, tdata_len);
-		//sendto(socket_fd, tdata, tdata_len, 0, &to, sizeof(struct sockaddr));
+		log_printf(LOG_DEBUG"---->APP:\n");             //debug,mark
+		memset(tdata, 0, tdata_len);
+		net_packet_build(WIFI_BROADCAST, get_new_packet_sn(), msg_body, msgbody_len, tdata);
+		print_hex(tdata, tdata_len);
+		sendto(socket_fd, tdata, tdata_len, 0, &to, sizeof(struct sockaddr));
 		vTaskDelay(3000);
 	}
 
@@ -287,6 +332,10 @@ void rlt_softap_start(rlt_ap_setting *ap_info)
 
 	rlt_tcp_server_entry();
 	rlt_broadcast_func(ap_info->ssid);
+	while(1)
+	{
+		vTaskDelay(500);
+	}
 }
 
 
@@ -312,7 +361,7 @@ int rlt_softap_config_entry()
 {
 	xTaskHandle app_task_handle = NULL;
 
-	if(xTaskCreate((TaskFunction_t)rlt_softap_config_mode, (char const *)"rlt softap config", 1024*3, NULL, tskIDLE_PRIORITY + 5, &app_task_handle) != pdPASS) {
+	if(xTaskCreate((TaskFunction_t)rlt_softap_config_mode, (char const *)"rlt softap config", 1024*2, NULL, tskIDLE_PRIORITY + 5, &app_task_handle) != pdPASS) {
 		printf("xTaskCreate failed\n");	
 	}
 	return 0;

@@ -48,7 +48,7 @@ int rlk_tcp_recv_entry()
 	log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
 	xTaskHandle app_task_handle = NULL;
 
-	if(xTaskCreate((TaskFunction_t)rlk_tcp_recv_func, (char const *)"rlk tcp recv task", 1024*3, NULL, tskIDLE_PRIORITY + 5, &app_task_handle) != pdPASS) {
+	if(xTaskCreate((TaskFunction_t)rlk_tcp_recv_func, (char const *)"rlk tcp recv task", 1024*2, NULL, tskIDLE_PRIORITY + 5, &app_task_handle) != pdPASS) {
 		printf("xTaskCreate failed\n");	
 	}
 	return 0;
