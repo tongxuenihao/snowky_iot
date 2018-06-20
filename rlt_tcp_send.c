@@ -89,8 +89,8 @@ int tcp_socket_set(unsigned char *host, unsigned int server_port, unsigned int r
 
 	if(reconnect_flag == 0)
 	{
-		server_host = gethostbyname(host);
-		memcpy((void *) &remote_addr.sin_addr, (void *) server_host->h_addr, server_host->h_length);
+		//server_host = gethostbyname(host);
+		//memcpy((void *) &remote_addr.sin_addr, (void *) server_host->h_addr, server_host->h_length);
 		sev_port = server_port;
 	}
 
@@ -117,7 +117,9 @@ int tcp_socket_set(unsigned char *host, unsigned int server_port, unsigned int r
 				return -1;
 			}
 			remote_addr.sin_family = AF_INET;
-			remote_addr.sin_port = htons(sev_port);
+			remote_addr.sin_port = htons(8080);
+			//remote_addr.sin_port = htons(sev_port);
+			//remote_addr.sin_addr.s_addr = inet_addr("111.148.9.98");
 			remote_addr.sin_addr.s_addr = inet_addr("192.168.0.2");
 
 			if(connect(socket_fd, (struct sockaddr *)&remote_addr, sizeof(struct sockaddr)) < 0)
@@ -139,9 +141,13 @@ int tcp_socket_set(unsigned char *host, unsigned int server_port, unsigned int r
 
 }
 
+#define DID_XXX "12345678"
+
 void rlk_tcp_send_func(int argc, char *argv[])
 {
 	log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
+	unsigned int payload_len;
+	unsigned char payload[80] = {0};
 	t_dev_info *dev_info;
 	unsigned char mqtt_msg_type;
 	int response_code;
@@ -177,9 +183,9 @@ void rlk_tcp_send_func(int argc, char *argv[])
 			else if(que_msg.msg_flag == DATA_FROM_UART)
 			{
 				log_printf(LOG_DEBUG"[%s]data from uart\n",__FUNCTION__);
-				send(socket_fd, que_msg.data, que_msg.data_len, 0);
-				//rlt_config_read((unsigned char *)dev_info, sizeof(t_dev_info));
-				//cattsoft_uart_data_handle(que_msg.data, dev_info->did, que_msg.data_len);
+				payload_len = data_from_uart_parse(que_msg.data, payload, que_msg.data_len);
+				//rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
+				cattsoft_uart_data_handle(payload, DID_XXX, payload_len);
 				rlt_queue_free_msg(que_msg);
 			}
 
@@ -343,7 +349,7 @@ int rlk_tcp_send_entry()
 {
 	xTaskHandle app_task_handle = NULL;
 
-	if(xTaskCreate((TaskFunction_t)rlk_tcp_send_func, (char const *)"rlk tcp send task", 1024*3, NULL, tskIDLE_PRIORITY + 5, &app_task_handle) != pdPASS) {
+	if(xTaskCreate((TaskFunction_t)rlk_tcp_send_func, (char const *)"rlk tcp send task", 1024*5, NULL, tskIDLE_PRIORITY + 5, &app_task_handle) != pdPASS) {
 		printf("xTaskCreate failed\n");	
 	}
 	return 0;

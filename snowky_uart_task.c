@@ -120,7 +120,7 @@ void uart_msg_handle(unsigned char *data, unsigned int data_len)
 			break;
 
 		case CMD_REQUEST_WIFI_CONFIG:
-			log_printf(LOG_DEBUG"[%s]get cmd:0x11\n",__FUNCTION__);
+			log_printf(LOG_DEBUG"[%s]get cmd:0x0c\n",__FUNCTION__);
 			uart_cmd_0x0C_handle();
 			break;
 

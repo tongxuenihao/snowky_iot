@@ -550,10 +550,31 @@ int mqtt_publish_with_qos(t_mqtt_broke *broker, unsigned char *rdata , unsigned 
     unsigned short remain_len;
     varc sendvarc;
 
-    memcpy(topic, "ser2dev/req/", strlen("ser2dev/req/"));
-    memcpy(topic + strlen("ser2dev/req/"), dev_did ,strlen(dev_did));
-    topic[strlen("ser2dev/req/") + strlen(dev_did)] = '\0';
-    topiclen = strlen(topic);
+    if(rdata[7] == 0x21)
+    {
+        memcpy(topic, "dev2ser/res/", strlen("dev2ser/res/"));
+        memcpy(topic + strlen("dev2ser/res/"), dev_did ,strlen(dev_did));
+        topic[strlen("dev2ser/res/") + strlen(dev_did)] = '\0';
+        topiclen = strlen(topic);
+    }
+
+#if 0
+    else if(rdata[7] == 0x22)
+    {
+        memcpy(topic, "dev2ser/req/", strlen("dev2ser/req/"));
+        memcpy(topic + strlen("dev2ser/req/"), dev_did ,strlen(dev_did));
+        topic[strlen("dev2ser/req/") + strlen(dev_did)] = '\0';
+        topiclen = strlen(topic);
+    }
+#endif
+
+    else if(rdata[7] == 0x24)
+    {
+        memcpy(topic, "dev2ser/noack/", strlen("dev2ser/noack/"));
+        memcpy(topic + strlen("dev2ser/noack/"), dev_did ,strlen(dev_did));
+        topic[strlen("dev2ser/noack/") + strlen(dev_did)] = '\0';
+        topiclen = strlen(topic);
+    }
 
     if(qos == 1) {
         qos_size = 2; // 2 bytes for QoS
@@ -599,7 +620,6 @@ int mqtt_publish_with_qos(t_mqtt_broke *broker, unsigned char *rdata , unsigned 
     
     fixed_header[0] = MQTT_MSG_PUBLISH | qos_flag;
     memcpy(fixed_header + 1, sendvarc.var, sendvarc.varcbty);
-    
     tdata_len = fixed_header_len + var_header_len + rdata_len;
     tdata = (unsigned char *)malloc(tdata_len);
     if(tdata == NULL)
@@ -611,7 +631,10 @@ int mqtt_publish_with_qos(t_mqtt_broke *broker, unsigned char *rdata , unsigned 
     memcpy(tdata, fixed_header, fixed_header_len);
     memcpy(tdata + fixed_header_len, var_header, var_header_len);
     memcpy(tdata + fixed_header_len + var_header_len, rdata, rdata_len);
-    ret = broker->mqtt_send(broker->socket_fd, tdata, tdata_len);
+
+    log_printf(LOG_DEBUG"---->NET:\n");
+    print_hex(tdata, tdata_len);
+    //ret = broker->mqtt_send(broker->socket_fd, tdata, tdata_len);
     if(ret < tdata_len) 
     {      
         free(fixed_header);
@@ -649,12 +672,18 @@ int cattsoft_m2m_heartbeat_request(int socket_fd)
     return mqtt_ping(socket_fd);
 }
 
+
 void cattsoft_dispatch_publish_packet(unsigned char *rdata, unsigned int rdata_len)
 {
     unsigned char topic[128];
+    unsigned int uart_packet_len;
+    unsigned char uart_packet[128];
     unsigned int topiclen;
     unsigned char *payload;
     unsigned int payload_len;
+
+    memset(topic, 0, 128);
+    memset(uart_packet, 0, 128);
 
     topiclen = mqtt_parse_pub_topic(rdata, topic);
     topic[topiclen] = '\0';
@@ -665,6 +694,13 @@ void cattsoft_dispatch_publish_packet(unsigned char *rdata, unsigned int rdata_l
     print_hex(payload, payload_len);
     if(strncmp((const char*)topic,"ser2dev/req/",strlen("ser2dev/req/"))==0)
     { 
-        uart_data_send(rdata, rdata_len);
+        uart_packet_len = data_from_m2m_parse(payload, uart_packet, payload_len);
+        uart_data_send(uart_packet, uart_packet_len);
+    }
+
+    else if(strncmp((const char*)topic,"ser2dev/res/",strlen("ser2dev/res/"))==0)
+    {
+        uart_packet_len = data_from_m2m_parse(payload, uart_packet, payload_len);
+        uart_data_send(uart_packet, uart_packet_len);
     }
 }

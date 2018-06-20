@@ -89,8 +89,6 @@ int socket_client_data_read(int client_fd)
 }
 
 
-
-
 void rlt_tcp_server_start(int argc, char *argv[])
 {
 	int max_socket_fd = -1;

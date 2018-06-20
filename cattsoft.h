@@ -25,9 +25,9 @@ enum{
 	M2M_RUNNING
 };
 
-#define HTTP_SERVER "192.168.1.1"
+#define HTTP_SERVER "http://111.148.9.98"
 //#define HTTP_SERVER "api.gizwits.com"
-#define HTTP_PORT 8080
+#define HTTP_PORT 18083
 
 
 
