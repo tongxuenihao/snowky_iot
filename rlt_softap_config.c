@@ -8,6 +8,7 @@
 
 
 #define BCAST_PORT 28899
+int recv_0x0082_flag = 0;
 
 extern struct netif xnetif[NET_IF_NUM]; 
 
@@ -49,7 +50,7 @@ int tcp_socket_init(unsigned int port)
 	if((local_fd = socket(AF_INET, SOCK_STREAM, 0)) >= 0) 
 	{
 		local_addr.sin_family = AF_INET;
-		local_addr.sin_port = htons(port);
+		local_addr.sin_port = htons(port);		
 		local_addr.sin_addr.s_addr = INADDR_ANY;
 
 		if(bind(local_fd, (struct sockaddr *) &local_addr, sizeof(local_addr)) != 0) 
@@ -182,37 +183,114 @@ int rlt_tcp_server_entry()
 	}
 	return 0;
 }
- 
-int broadcast_packet_build(unsigned char *ap_name, unsigned char *msg_body)
+
+void rlt_generate_ap_name(unsigned char *ap_name);
+
+void rlt_broadcast_recv_func(int argc, char *argv[])
 {
 	unsigned char *ip;
 	unsigned char *mac;
+	unsigned char *msg_body;
 	unsigned int msgbody_len;
-	if(ap_name != NULL)
+	unsigned char *tdata;
+	unsigned int tdata_len;
+	unsigned char rxbuf[128];
+	unsigned char ap_name[32];
+	struct sockaddr_in from_addr;
+	int local_fd = -1;
+	int from_addr_len = sizeof(from_addr);
+
+	memset(ap_name, 0, 32);
+	rlt_generate_ap_name(ap_name);
+
+
+	if((local_fd = udp_socket_init(BCAST_PORT)) < 0) 
 	{
-		msgbody_len = 15 + strlen(ap_name);
-		memset(msg_body, 0, msgbody_len);
-		ip = LwIP_GetIP(&xnetif[0]);
-		memcpy(msg_body, ip, 4);
-		*(unsigned int *)&msg_body[4] = htonl(BCAST_PORT);
-		mac = LwIP_GetMAC(&xnetif[0]);
-		memcpy(&msg_body[8], mac, 6);
-		msg_body[14] = strlen(ap_name);
-		strcpy(&msg_body[15], ap_name);
-		return msgbody_len;
+		printf("socket error\n");
+		goto exit;
 	}
 
-	else
+	while(1) 
 	{
-		msgbody_len = 15;
-		memset(msg_body, 0, msgbody_len);
-		ip = LwIP_GetIP(&xnetif[0]);
-		memcpy(msg_body, ip, 4);
-		mac = LwIP_GetMAC(&xnetif[0]);
-		memcpy(&msg_body[8], mac, 6);
-		return msgbody_len;
+		fd_set read_fds;
+		struct timeval timeout;
+
+		FD_ZERO(&read_fds);
+		FD_SET(local_fd, &read_fds);
+		timeout.tv_sec = SELECT_TIMEOUT;
+		timeout.tv_usec = 0;
+		memset(rxbuf, 0, 128);
+
+		if(select(local_fd + 1, &read_fds, NULL, NULL, &timeout)) 
+		{
+			int read_size = recvfrom(local_fd, rxbuf, 128, 0, (struct sockaddr *)&from_addr, &from_addr_len);
+			if(read_size > 0)
+			{
+				if((rxbuf[0] == 0x5A) && (rxbuf[7] == 0x82))
+				{
+					recv_0x0082_flag = 1;
+					if(ap_name == NULL)
+					{
+						msgbody_len = 14;
+					}
+					else
+					{
+						msgbody_len = 15 + strlen(ap_name);
+					}
+					msg_body = (unsigned char *)malloc(msgbody_len);
+					if(msg_body == NULL)
+					{
+						log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
+						return;
+					}
+					ip = LwIP_GetIP(&xnetif[0]);
+					memset(msg_body, 0, msgbody_len);
+					memcpy(msg_body, ip, 4);                                    //little endian
+					*(unsigned int *)&msg_body[4] = htonl(SERVER_PORT);
+					mac = LwIP_GetMAC(&xnetif[0]);
+					memcpy(&msg_body[8], mac, 6);
+					if(ap_name != NULL)
+					{
+						msg_body[14] = strlen(ap_name);
+						strcpy(&msg_body[15], ap_name);
+					}
+
+					tdata_len = NET_PACKET_HEAD + msgbody_len;
+					tdata = (unsigned char *)malloc(tdata_len);
+					if(tdata == NULL)
+					{
+						log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
+						return;
+					}
+					net_packet_build(APP_BROADCAST_RES, get_new_packet_sn(), msg_body, msgbody_len, tdata);
+					print_hex(tdata, tdata_len);
+					sendto(local_fd, tdata, tdata_len, 0, &from_addr, sizeof(struct sockaddr));
+				}
+			}
+	
+		}
+		else
+		{
+			printf("udp recv: no data in %d seconds\n", SELECT_TIMEOUT);
+		}
+
+		vTaskDelay(300);
 	}
 
+exit:
+	if(local_fd >= 0)
+		close(local_fd);
+	vTaskDelete(NULL);
+}
+
+int rlt_broadcast_recv_entry()
+{
+	xTaskHandle app_task_handle = NULL;
+
+	if(xTaskCreate((TaskFunction_t)rlt_broadcast_recv_func, (char const *)"rlt softap config", 1024*2, NULL, tskIDLE_PRIORITY + 5, &app_task_handle) != pdPASS) {
+		printf("xTaskCreate failed\n");	
+	}
+	return 0;
 }
 
 
@@ -226,6 +304,7 @@ void rlt_broadcast_func(unsigned char *ap_name)
 	unsigned char *tdata;
 	unsigned int tdata_len;
 	int socket_fd;
+	int send_broadcast_pk_cnt = 0;
 	socket_fd = udp_socket_init(BCAST_PORT);
 	if(socket_fd < 0)
 	{
@@ -248,12 +327,11 @@ void rlt_broadcast_func(unsigned char *ap_name)
 	ip = LwIP_GetIP(&xnetif[0]);
 	memset(msg_body, 0, msgbody_len);
 	memcpy(msg_body, ip, 4);                                    //little endian
-	*(unsigned int *)&msg_body[4] = htonl(BCAST_PORT);
+	*(unsigned int *)&msg_body[4] = htonl(SERVER_PORT);
 	mac = LwIP_GetMAC(&xnetif[0]);
 	memcpy(&msg_body[8], mac, 6);
 	if(ap_name != NULL)
 	{
-		*(unsigned int *)&msg_body[4] = htonl(BCAST_PORT);
 		msg_body[14] = strlen(ap_name);
 		strcpy(&msg_body[15], ap_name);
 	}
@@ -271,14 +349,17 @@ void rlt_broadcast_func(unsigned char *ap_name)
 	to.sin_addr.s_addr = htonl(0xffffffff);
 	while(1)
 	{
-		log_printf(LOG_DEBUG"---->APP:\n");             //debug,mark
-		memset(tdata, 0, tdata_len);
-		net_packet_build(WIFI_BROADCAST, get_new_packet_sn(), msg_body, msgbody_len, tdata);
-		print_hex(tdata, tdata_len);
-		sendto(socket_fd, tdata, tdata_len, 0, &to, sizeof(struct sockaddr));
+		if((recv_0x0082_flag != 1) && (send_broadcast_pk_cnt < 10))
+		{
+			send_broadcast_pk_cnt++;
+			log_printf(LOG_DEBUG"---->APP:\n");             //debug,mark
+			memset(tdata, 0, tdata_len);
+			net_packet_build(WIFI_BROADCAST, get_new_packet_sn(), msg_body, msgbody_len, tdata);
+			print_hex(tdata, tdata_len);
+			sendto(socket_fd, tdata, tdata_len, 0, &to, sizeof(struct sockaddr));
+		}
 		vTaskDelay(3000);
 	}
-
 } 
 
 void rlt_generate_ap_name(unsigned char *ap_name)
@@ -330,11 +411,13 @@ void rlt_softap_start(rlt_ap_setting *ap_info)
 
 	rlt_tcp_server_entry();
 	rlt_broadcast_func(ap_info->ssid);
+	rlt_broadcast_recv_entry();
 	while(1)
 	{
 		vTaskDelay(500);
 	}
 }
+
 
 
 void rlt_softap_config_mode(int argc, char *argv[])

@@ -153,7 +153,7 @@ Try_again:
 
 void net_event_init()
 {
-	//rlt_device_discover_func_entry();
+	rlt_device_discover_func_entry();
 	rlt_msg_queue_create(&msg_queue, 20);
 	rlt_msg_queue_send(msg_queue, SET_TCP_SOCKET, NULL, 0);
 	rlk_tcp_send_entry();
