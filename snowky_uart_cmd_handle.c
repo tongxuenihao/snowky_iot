@@ -98,6 +98,7 @@ void uart_cmd_0x07_handle(unsigned char *data, unsigned int data_len)
 	rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
 	memcpy(dev_info->dev_sn, &data[10], DEV_SN_LEN);
 	dev_info->dev_sn[DEV_SN_LEN] = '\0';
+	dev_info->dev_type = data[2];
 	rlt_device_info_write((unsigned char *)dev_info, sizeof(t_dev_info));
 	free(dev_info);
 }
@@ -136,7 +137,7 @@ void uart_cmd_0x09_handle(unsigned char *data, unsigned int data_len)
 	memset((unsigned char *)dev_info, 0, sizeof(t_dev_info));
 	rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
 	memcpy(dev_info->dev_ver, &data[10], DEV_VER_LEN);
-	dev_info->dev_sn[DEV_VER_LEN] = '\0';
+	dev_info->dev_ver[DEV_VER_LEN] = '\0';
 	rlt_device_info_write((unsigned char *)dev_info, sizeof(t_dev_info));
 	free(dev_info);
 }

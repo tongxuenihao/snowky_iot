@@ -64,7 +64,7 @@ int cattsoft_device_register_request(int socket_fd)
 		cJSON_AddStringToObject(json_Object, "sn", dev_info->dev_sn);
 		cJSON_AddStringToObject(json_Object, "mac", macstr);
 		cJSON_AddStringToObject(json_Object, "mcuVersion", dev_info->dev_ver);
-		cJSON_AddNumberToObject(json_Object, "devType", 1);
+		cJSON_AddNumberToObject(json_Object, "devType", dev_info->dev_type);
 	}
 	content = cJSON_Print(json_Object);
 	if(content != NULL)

@@ -164,7 +164,7 @@ void rlk_net_task(int argc, char *argv[])
 {
 	int ret;
 	rtw_wifi_setting_t *wifi_info;
-#if 0
+#if 1
 	while(sn_get_success != 1)
 	{
 		vTaskDelay(1000);

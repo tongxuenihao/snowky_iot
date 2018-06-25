@@ -22,6 +22,7 @@ typedef struct dev_info{
 	unsigned char did[13];
 	unsigned char access_token[65];
 	unsigned char access_key[33];
+	unsigned char dev_type;
 }t_dev_info;
 
 

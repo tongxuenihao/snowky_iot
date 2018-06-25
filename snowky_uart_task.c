@@ -20,7 +20,6 @@ unsigned int sn_get_success = 0;
 
 unsigned char get_checksum(unsigned char *data, unsigned int len)
 {
-	log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
 	int i;
 	unsigned char temp_checksum = 0;
 	for(i = 0; i < len; i++)
@@ -34,7 +33,7 @@ unsigned char get_checksum(unsigned char *data, unsigned int len)
 unsigned int uart_packet_build(unsigned char msg_type, unsigned char *msg_body, unsigned int msg_body_len, unsigned char *packet)
 {
 	int i;
-	log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
+	//log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
 	packet[0] = SYNC;
 	packet[1]= PACKET_LEN_ExCLUDE_SYNC + msg_body_len;
 	packet[2] = 0;//get_device_type();
@@ -48,8 +47,9 @@ unsigned int uart_packet_build(unsigned char msg_type, unsigned char *msg_body, 
 
 int uart_data_send(unsigned char *buff, unsigned int len)
 {
-	log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
+	//log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
 	int i;
+	log_printf(LOG_DEBUG"---->UART:\n");  
 	print_hex(buff,len);
 
 	for(i = 0; i < len; i++)
@@ -78,7 +78,6 @@ void cmd_07_timeout_handler(unsigned int TimeOut)
 	}
 	else
 	{
-		log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
 		cmd_07_timer_handler();
 	}
 }
@@ -292,8 +291,8 @@ void rlk_uart_task(int argc, char *argv[])
 	serial_irq_set(&sobj, RxIrq, 1);
 	serial_irq_set(&sobj, TxIrq, 1);
 
-	//gtimer_init(&cmd_07_timer, TIMER2);
-	//gtimer_start_periodical(&cmd_07_timer, 1000000, (void*)cmd_07_timeout_handler, NULL);
+	gtimer_init(&cmd_07_timer, TIMER2);
+	gtimer_start_periodical(&cmd_07_timer, 1000000, (void*)cmd_07_timeout_handler, NULL);
 	while(1)
 	{
 		vTaskDelay(3000);
