@@ -13,6 +13,7 @@
 #include "log_level_print.h"
 #include "rlt_flash_parameter.h"
 
+
 int rlt_device_info_write(const char *buffer, int length)
 {
 	int ret=0;

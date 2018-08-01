@@ -3,6 +3,9 @@
 	> Author: xuetong
 	> Mail: 
 	> Created Time: Sat 28 Apr 2018 10:47:29 PM CST
+
+
+
  ************************************************************************/
 #ifndef _CATTSOFT_H
 #define _CATTSOFT_H
@@ -10,7 +13,9 @@
 #define kCRLFNewLine "\r\n" 
 #define kCRLFLineEnding "\r\n\r\n"
 
-#define CLOUD_MQTT_SET_ALIVE 120
+#define NET_INFO_POS 5
+
+#define CLOUD_MQTT_SET_ALIVE 60
 
 enum{
 	DEVICE_REGISTER_RES = 0,
@@ -25,9 +30,14 @@ enum{
 	M2M_RUNNING
 };
 
-#define HTTP_SERVER "http://111.148.9.98"
-//#define HTTP_SERVER "api.gizwits.com"
-#define HTTP_PORT 18083
+#define HTTP_SERVER "117.71.58.103"
+#define HTTP_PORT 8087
+//#define HTTP_SERVER_CONNECT "118.178.132.84"
+//#define HTTP_PORT 80
+
+
+#define M2M_SERVER "111.148.9.98"
+#define M2M_PORT 1883
 
 
 

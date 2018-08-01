@@ -14,7 +14,7 @@
 #define DEV_SN_LEN 28
 #define DEV_VER_LEN 9
 
-#define SYNC 0xF5
+#define SYNC 0xAA
 #define PACKET_LEN_ExCLUDE_SYNC 10
 #define PACKET_LEN_INCLUDE_SYNC 11
 #define MSG_TYPE_POS 9

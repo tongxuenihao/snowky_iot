@@ -42,7 +42,8 @@ int cattsoft_device_register_request(int socket_fd)
 	unsigned char *mac;
 	unsigned char macstr[13] ={0};
 	cJSON *json_Object;
-	char *url = "/dev/reg";
+	char *url = "/snowkyMobile/dev/reg";
+
 	char *content;
 	unsigned int content_len;
 	unsigned char *tdata;
@@ -99,12 +100,69 @@ int cattsoft_device_register_request(int socket_fd)
 	return -1;
 }
 
+int cattsoft_device_logout_request(int socket_fd)
+{
+	int ret;
+	cJSON *json_Object;
+	char *url = "/snowkyMobile/dev/cancel";
+	char *content;
+	unsigned int content_len;
+	unsigned char *tdata;
+	unsigned int tdata_len;
+	t_dev_info *dev_info;
+	dev_info = (t_dev_info *)malloc(sizeof(t_dev_info));
+	if(dev_info == NULL)
+	{
+		log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
+		return -1;
+	}
+	memset((unsigned char *)dev_info, 0, sizeof(t_dev_info));
+	rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
+	json_Object = cJSON_CreateObject();
+	if(json_Object != NULL)
+	{
+		cJSON_AddStringToObject(json_Object, "accessToken", dev_info->access_token);
+	}
+	content = cJSON_Print(json_Object);
+	if(content != NULL)
+	{
+		tdata = (unsigned char *)malloc(512);
+		if(tdata == NULL)
+		{
+			log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
+			return -1;
+		}
+		memset(tdata, 0, 512);
+		content_len=strlen(content);
+    	snprintf( (char *)tdata,1024,"%s %s %s%s%s %s%s%s %d%s%s%s%s%s",
+            "POST" ,url,"HTTP/1.1",kCRLFNewLine,
+            "Host:",HTTP_SERVER,kCRLFNewLine,
+            "Content-Length:",content_len,kCRLFNewLine,
+            "Content-Type: text/plain",kCRLFNewLine,
+            kCRLFNewLine,
+            content
+            );
+    	tdata_len = strlen(tdata);
+    	ret = send(socket_fd, tdata, tdata_len, 0);
+    	if(ret >= 0)
+    	{
+		    log_printf(LOG_DEBUG"---->NET:\n");
+    		printf("%s\n", tdata);
+    		free(dev_info);
+    		free(tdata);
+    		return 1;
+    	}
+	}
+	return -1;
+}
+
 
 int cattsoft_device_prelogin_request(int socket_fd)
 {
 	int ret;
+	unsigned int content_len;
 	cJSON *json_Object;
-	char *url = "/dev/reg";
+	char *url = "/snowkyMobile/dev/prelogin";
 	char *content;
 	unsigned char *tdata;
 	unsigned int tdata_len;
@@ -126,18 +184,23 @@ int cattsoft_device_prelogin_request(int socket_fd)
 	content = cJSON_Print(json_Object);
 	if(content != NULL)
 	{
-		tdata = (unsigned char *)malloc(200);
+		tdata = (unsigned char *)malloc(512);
 		if(tdata == NULL)
 		{
 			log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
 			return -1;
 		}
-		memset(tdata, 0, 200);
-    	snprintf( (char *)tdata,200,"%s %s%s %s%s%s %s%s%s%s%s",
-            "GET",url,content,"HTTP/1.1",kCRLFNewLine,
-            "Host:",HTTP_SERVER,kCRLFNewLine
-            "Cache-Control: no-cache",kCRLFNewLine,
-            "Content-Type: application/x-www-form-urlencoded",kCRLFLineEnding);
+		memset(tdata, 0, 512);
+		content_len=strlen(content);
+    	snprintf( (char *)tdata,1024,"%s %s %s%s%s %s%s%s %d%s%s%s%s%s",
+            "POST" ,url,"HTTP/1.1",kCRLFNewLine,
+            "Host:",HTTP_SERVER,kCRLFNewLine,
+            "Content-Length:",content_len,kCRLFNewLine,
+            "Content-Type: text/plain",kCRLFNewLine,
+            kCRLFNewLine,
+            content
+            );
+
     	tdata_len = strlen(tdata);
     	ret = send(socket_fd, tdata, tdata_len, 0);
     	if(ret >= 0)
@@ -152,46 +215,63 @@ int cattsoft_device_prelogin_request(int socket_fd)
 	return -1;
 }
 
+void get_info_from_cjson(char *src, char *name_str, char *info_str)
+{
+	char *str_pos;
+	char *end;
+	int len;
+	str_pos = strstr(src, name_str);
+	if(!str_pos)
+	{
+		printf("[%s]str not found\n",__FUNCTION__);
+		return;
+	}
+	str_pos += (strlen(name_str) + NET_INFO_POS);
+	end = strchr(str_pos, '"');
+	len = end - str_pos;
+	strncpy(info_str, str_pos, len);
+	info_str[len] = '\0';
+	printf("[%s]info_str:%s\n",__FUNCTION__,info_str);
+}
+
 int cattsoft_http_registerion_parse(unsigned char *data)
 {
+	log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
 	t_dev_info *dev_info;
 	char *header = NULL;
 	char *body = NULL;
+	char *dev_id;
+	char *access_token;
+	char *temp_str;
+	char *end;
+	int len;
+	
 	header = strstr(data, kCRLFLineEnding);
 	if(header) 
 	{
 		body = header + strlen("\r\n\r\n");
+		printf("[%s]get kCRLFLineEnding ok\n",__FUNCTION__);
 	}
 	else
 	{
-		log_printf(LOG_WARNING"[%s]get kCRLFLineEnding error\n",__FUNCTION__);
+		printf("[%s]get kCRLFLineEnding error\n",__FUNCTION__);
 		return -1;
 	}
-	cJSON * json_Object = cJSON_Parse(body);
-	if(json_Object != NULL)
-	{
-		cJSON * p_sub = cJSON_GetObjectItem(json_Object, "statusCode");
-		if(p_sub->valueint != 0)
-		{
-			log_printf(LOG_WARNING"[%s]get statusCode error,ret:%d\n",__FUNCTION__,p_sub->valueint);
-			return -1;
-		}
+	printf("msg body:%s\n", body);
 
-		dev_info = (t_dev_info *)malloc(sizeof(t_dev_info));
-		if(dev_info == NULL)
-		{
-			log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
-			return -1;
-		}
-		memset((unsigned char *)dev_info, 0, sizeof(t_dev_info));
-		rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
-		memcpy((unsigned char *)dev_info->did, cJSON_GetObjectItem(json_Object, "devid")->valuestring, DID_LEN);
-		dev_info->did[DID_LEN] = '\0';
-		memcpy((unsigned char *)dev_info->access_token, cJSON_GetObjectItem(json_Object, "accessToken")->valuestring, TOKEN_LEN);
-		dev_info->access_token[TOKEN_LEN] = '\0';
-		rlt_device_info_write((unsigned char *)dev_info, sizeof(t_dev_info));
-		free(dev_info);
+	dev_info = (t_dev_info *)malloc(sizeof(t_dev_info));
+	if(dev_info == NULL)
+	{
+		log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
+		return -1;
 	}
+	memset((unsigned char *)dev_info, 0, sizeof(t_dev_info));
+	rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
+
+	get_info_from_cjson(body, "devid", dev_info->did);
+	get_info_from_cjson(body, "accessToken", dev_info->access_token);
+	rlt_device_info_write((unsigned char *)dev_info, sizeof(t_dev_info));
+	free(dev_info);
 	return 1;
 }
 
@@ -200,6 +280,11 @@ int cattsoft_http_prelogin_parse(unsigned char *data, char *host, int *port)
 	t_dev_info *dev_info;
 	char *header = NULL;
 	char *body = NULL;
+	char *temp_str;
+	char *mqttservPwd;
+	char *mqttservIp;
+	char *mqttservPort;
+	char port_arry[5];
 	header = strstr(data, kCRLFLineEnding);
 	if(header) 
 	{
@@ -210,6 +295,63 @@ int cattsoft_http_prelogin_parse(unsigned char *data, char *host, int *port)
 		log_printf(LOG_WARNING"[%s]get kCRLFLineEnding error\n",__FUNCTION__);
 		return -1;
 	}
+
+	dev_info = (t_dev_info *)malloc(sizeof(t_dev_info));
+	if(dev_info == NULL)
+	{
+		log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
+		return -1;
+	}
+	memset((unsigned char *)dev_info, 0, sizeof(t_dev_info));
+	rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
+
+	get_info_from_cjson(body, "mqttservIp", host);
+	get_info_from_cjson(body, "mqttservPort", port_arry);
+	*port = atoi(port_arry);
+	get_info_from_cjson(body, "mqttservPwd", dev_info->access_key);
+#if 0
+//mqttservIp
+	temp_str = "mqttservIp";
+	mqttservIp = strstr(body, temp_str);
+	if(!mqttservIp)
+	{
+		printf("[%s]accessToken not found\n",__FUNCTION__);
+		return -1;
+	}
+	mqttservIp += strlen(temp_str);
+	strncpy(host, mqttservIp + 5, 13);
+	host[13] = '\0';
+
+//mqttservPort
+	temp_str = "mqttservPort";
+	mqttservPort = strstr(body, temp_str);
+	if(!mqttservPort)
+	{
+		printf("[%s]accessToken not found\n",__FUNCTION__);
+		return -1;
+	}
+	mqttservPort += strlen(temp_str);
+	strncpy(port_arry, mqttservPort + 5, 4);
+	port_arry[4] = '\0';
+	*port = atoi(port_arry);
+
+//mqttservPwd
+	temp_str = "mqttservPwd";
+	mqttservPwd = strstr(body, temp_str);
+	if(!mqttservPwd)
+	{
+		printf("[%s]accessToken not found\n",__FUNCTION__);
+		return -1;
+	}
+	mqttservPwd += strlen(temp_str);
+	strncpy(dev_info->access_key, mqttservPwd + 5, ACCESS_KEY);
+	dev_info->access_key[ACCESS_KEY] = '\0';
+	printf("[%s]mqttservPwd:%s\n",__FUNCTION__,dev_info->access_key);
+#endif
+	rlt_device_info_write((unsigned char *)dev_info, sizeof(t_dev_info));
+	free(dev_info);
+	return 1;
+#if 0
 	cJSON * json_Object = cJSON_Parse(body);
 	if(json_Object != NULL)
 	{
@@ -235,6 +377,35 @@ int cattsoft_http_prelogin_parse(unsigned char *data, char *host, int *port)
 		rlt_device_info_write((unsigned char *)dev_info, sizeof(t_dev_info));
 		free(dev_info);
 	}
+	#endif
+
+}
+
+int cattsoft_http_logout_parse(unsigned char *data)
+{
+	char *header = NULL;
+	char *body = NULL;
+	header = strstr(data, kCRLFLineEnding);
+	if(header) 
+	{
+		body = header + strlen("\r\n\r\n");
+	}
+	else
+	{
+		log_printf(LOG_WARNING"[%s]get kCRLFLineEnding error\n",__FUNCTION__);
+		return -1;
+	}
+	cJSON * json_Object = cJSON_Parse(body);
+	if(json_Object != NULL)
+	{
+		cJSON * p_sub = cJSON_GetObjectItem(json_Object, "statusCode");
+		if(p_sub->valueint != 0)
+		{
+			log_printf(LOG_WARNING"[%s]get statusCode error\n",__FUNCTION__);
+			return -1;
+		}
+		log_printf(LOG_DEBUG"[%s]logout success!\n",__FUNCTION__);
+	}
 	return 1;
 }
 
@@ -242,16 +413,18 @@ int cattsoft_http_prelogin_parse(unsigned char *data, char *host, int *port)
 int cattsoft_http_registerion(unsigned char *data, int response_code)
 {
 	int ret;
-	if(response_code != 201)
+	if(response_code != 200)
 	{
 		printf("[%s]did get response code error:%d\n",__FUNCTION__,response_code);
 		return -1;
 	}
+	printf("[%s]did get response code ok:%d\n",__FUNCTION__,response_code);
 	ret = cattsoft_http_registerion_parse(data);
 	if(ret == 1)
 	{
 		return 1;
 	}
+	printf("[%s]error :-1\n",__FUNCTION__);
 	return -1;
 }
 
@@ -260,10 +433,26 @@ int cattsoft_http_prelogin(unsigned char *data, char *host, int *port, int respo
 	int ret;
 	if(response_code != 200)
 	{
-		log_printf(LOG_DEBUG"[%s]did get response code error\n",__FUNCTION__);
+		log_printf(LOG_DEBUG"[%s]prelogin get response code error\n",__FUNCTION__);
 		return -1;
 	}
 	ret = cattsoft_http_prelogin_parse(data, host, port);
+	if(ret == 1)
+	{
+		return 1;
+	}
+	return -1;
+}
+
+int cattsoft_http_logout(unsigned char *data, int response_code)
+{
+	int ret;
+	if(response_code != 200)
+	{
+		log_printf(LOG_DEBUG"[%s]did get response code error\n",__FUNCTION__);
+		return -1;
+	}
+	ret = cattsoft_http_logout_parse(data);
 	if(ret == 1)
 	{
 		return 1;

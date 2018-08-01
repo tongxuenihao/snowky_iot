@@ -35,7 +35,7 @@ int rlt_msg_queue_create(xQueueHandle *mp_que,int msg_num)
 
 int rlt_msg_queue_send(xQueueHandle que,int msg_flag,unsigned char *data,unsigned int data_len)
 {
-	log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
+	//log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
     unsigned int ret;
     t_queue_msg que_msg;
     t_queue_msg que_msg_recv;

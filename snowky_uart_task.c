@@ -17,17 +17,19 @@ unsigned char uart_status = UartNOP;
 unsigned int  uart_recv_len = 0;
 static unsigned char recv_buffer[RECV_MAX_LEN] = {0};
 unsigned int sn_get_success = 0;
+unsigned int ver_get_success = 0;
 
 unsigned char get_checksum(unsigned char *data, unsigned int len)
 {
 	int i;
-	unsigned char temp_checksum = 0;
+	unsigned short temp_checksum = 0;
+	unsigned char sum;
 	for(i = 0; i < len; i++)
 	{	
 		temp_checksum += data[i];
 	}
-	temp_checksum = temp_checksum & 0x00ff;
-	return temp_checksum;
+	sum = temp_checksum & 0x00ff;
+	return sum;
 }
 
 unsigned int uart_packet_build(unsigned char msg_type, unsigned char *msg_body, unsigned int msg_body_len, unsigned char *packet)
@@ -43,7 +45,6 @@ unsigned int uart_packet_build(unsigned char msg_type, unsigned char *msg_body, 
 	packet[PACKET_LEN_ExCLUDE_SYNC + msg_body_len] = get_checksum(&packet[1], PACKET_LEN_ExCLUDE_SYNC + msg_body_len - 1);
 	return PACKET_LEN_ExCLUDE_SYNC + msg_body_len + 1;
 }
-
 
 int uart_data_send(unsigned char *buff, unsigned int len)
 {
@@ -70,15 +71,31 @@ void cmd_07_timer_handler()
 	uart_data_send(tdata, tdata_len);
 }
 
+
+void cmd_09_timer_handler()
+{
+	int i;
+	unsigned char msgbody[1] = {0};
+	unsigned char tdata[12] = {0};
+	unsigned int tdata_len;
+	memset(tdata, 0, 12);
+	tdata_len = uart_packet_build(CMD_GET_MCU_VERSION, msgbody, 1, tdata);
+	uart_data_send(tdata, tdata_len);
+}
+
 void cmd_07_timeout_handler(unsigned int TimeOut)
 {
-	if(sn_get_success)
+	if(sn_get_success && ver_get_success)
 	{
 		gtimer_stop(&cmd_07_timer);
 	}
-	else
+	else if(!sn_get_success)
 	{
 		cmd_07_timer_handler();
+	}
+	else if(sn_get_success && !ver_get_success)
+	{
+		cmd_09_timer_handler();
 	}
 }
 
@@ -122,6 +139,7 @@ void uart_msg_handle(unsigned char *data, unsigned int data_len)
 			log_printf(LOG_DEBUG"[%s]get cmd:0x0c\n",__FUNCTION__);
 			uart_cmd_0x0C_handle();
 			break;
+			
 
 		default:
 			break;
@@ -297,7 +315,6 @@ void rlk_uart_task(int argc, char *argv[])
 	{
 		vTaskDelay(3000);
 	}
-
 }
 
 int rlk_uart_task_init()

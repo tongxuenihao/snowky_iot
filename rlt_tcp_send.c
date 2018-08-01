@@ -6,8 +6,14 @@
  ************************************************************************/
 #include "common.h"
 
+#define DID_XXX "12345678"
+
+#define M2M_NAME "xuetong"
+#define M2M_PASSWD "test1234"
 
 TimerHandle_t heartbeat_timer;
+TimerHandle_t dataresp_timer;
+
 extern xQueueHandle msg_queue;
 int socket_fd = -1;
 
@@ -21,7 +27,7 @@ int heartbeat_wait_tick;
 int heartbeat_miss_cnt = 0;
 
 static int m2m_port;
-static char m2m_server[100] = {0};
+static char m2m_server[16] = {0};
 
 void set_http_status(int flag)
 {
@@ -62,6 +68,23 @@ int set_heartbeat_init()
 	return 1;
 }
 
+void dataresp_handle(xTimerHandle pxTimer)
+{
+	unsigned char msg_body[40];
+	unsigned char payload[51];
+	memset(msg_body, 0, 40);
+	memset(payload, 0, 51);
+	uart_packet_build(CMD_GET_DEVICE_STATUS, msg_body, 40, payload);
+	cattsoft_uart_data_handle(payload, DID_XXX, 51);
+	xTimerStop(dataresp_timer, 0);
+}
+
+int set_dataresp_timer_init()
+{
+	dataresp_timer = xTimerCreate("data handle", 3 * 1000, pdTRUE, NULL, heartbeat_handle);
+	return 1;
+}
+
 int cattsoft_mqtt_socket_reset()
 {
 	int ret;
@@ -79,18 +102,21 @@ int cattsoft_mqtt_socket_reset()
 int tcp_socket_set(unsigned char *host, unsigned int server_port, unsigned int reconnect_flag)
 {
 	log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
+	int ret;
 	int local_fd = -1;
 	struct sockaddr_in local_addr;
 	static struct sockaddr_in remote_addr;
-	struct hostent *server_host;
+	struct hostent *server;
 	static int reconnect_times = 0;
 
+	static unsigned char *sev_ip;
 	static short sev_port;
 
 	if(reconnect_flag == 0)
 	{
 		//server_host = gethostbyname(host);
-		//memcpy((void *) &remote_addr.sin_addr, (void *) server_host->h_addr, server_host->h_length);
+		//memcpy((void *) &remote_addr.sin_addr.s_addr, (void *) server_host->h_addr, server_host->h_length);
+		sev_ip = host;
 		sev_port = server_port;
 	}
 
@@ -115,12 +141,12 @@ int tcp_socket_set(unsigned char *host, unsigned int server_port, unsigned int r
 				close(socket_fd);
 				reconnect_times++;
 				return -1;
-			}
-			remote_addr.sin_family = AF_INET;
-			remote_addr.sin_port = htons(8080);
-			//remote_addr.sin_port = htons(sev_port);
-			//remote_addr.sin_addr.s_addr = inet_addr("111.148.9.98");
-			remote_addr.sin_addr.s_addr = inet_addr("192.168.0.2");
+			} 
+		    
+		    memset(&remote_addr,0,sizeof(remote_addr));
+		    remote_addr.sin_family = AF_INET;
+		    remote_addr.sin_port = htons(server_port);
+		    remote_addr.sin_addr.s_addr = inet_addr(host);
 
 			if(connect(socket_fd, (struct sockaddr *)&remote_addr, sizeof(struct sockaddr)) < 0)
 			{
@@ -130,6 +156,12 @@ int tcp_socket_set(unsigned char *host, unsigned int server_port, unsigned int r
 				return -1;
 			}
 			log_printf(LOG_DEBUG"[%s]connect OK\n",__FUNCTION__);
+			if(reconnect_flag)
+			{
+				ret = cattsoft_m2m_login_request(socket_fd, M2M_NAME, M2M_PASSWD);
+				set_http_status(DEVICE_CONFIG_FINISH);
+				set_m2m_status(M2M_LOGIN_RES);
+			}
 		}
 		else
 		{
@@ -141,7 +173,7 @@ int tcp_socket_set(unsigned char *host, unsigned int server_port, unsigned int r
 
 }
 
-#define DID_XXX "12345678"
+
 
 void rlk_tcp_send_func(int argc, char *argv[])
 {
@@ -154,6 +186,7 @@ void rlk_tcp_send_func(int argc, char *argv[])
 	int server_ip;
 	int ret;
 	t_queue_msg que_msg;
+
 
 	dev_info = (t_dev_info *)malloc(sizeof(t_dev_info));
 	if(dev_info == NULL)
@@ -172,10 +205,46 @@ void rlk_tcp_send_func(int argc, char *argv[])
 				ret = tcp_socket_set(HTTP_SERVER, HTTP_PORT,0);
 				if(ret >= 0)
 				{
-					ret = cattsoft_device_register_request(socket_fd);
+					rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
+					print_hex(dev_info->did, 19);
+					if(*((uint32_t *) dev_info) != ~0x0 && strlen(dev_info->did) && (dev_info->did[0] != 0xff))
+					{
+						//ret = cattsoft_device_register_request(socket_fd);
+						//if(ret == 1)
+						//{
+							//set_http_status(DEVICE_REGISTER_RES);
+						//}
+						ret = cattsoft_device_prelogin_request(socket_fd);
+						if(ret == 1)
+						{
+							set_http_status(DEVICE_PRE_LOGIN_RES);
+						}
+					}
+					else
+					{
+						ret = cattsoft_device_register_request(socket_fd);
+						if(ret == 1)
+						{
+							set_http_status(DEVICE_REGISTER_RES);
+						}
+					}
+				}
+			}
+
+			else if(que_msg.msg_flag == DEVICE_LOGOUT)
+			{
+				close(socket_fd);  
+				socket_fd = -1; 
+				ret = tcp_socket_set(HTTP_SERVER, HTTP_PORT,0);
+				if(ret >= 0)
+				{
+					ret = cattsoft_device_logout_request(socket_fd);
 					if(ret == 1)
 					{
-						set_http_status(DEVICE_REGISTER_RES);
+						//set_http_status(DEVICE_LOGOUT_RES);
+						rlt_device_info_clean();
+						rlt_wifi_info_clean();
+						sys_reset(); 
 					}
 				}
 			}
@@ -184,8 +253,8 @@ void rlk_tcp_send_func(int argc, char *argv[])
 			{
 				log_printf(LOG_DEBUG"[%s]data from uart\n",__FUNCTION__);
 				payload_len = data_from_uart_parse(que_msg.data, payload, que_msg.data_len);
-				//rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
-				cattsoft_uart_data_handle(payload, DID_XXX, payload_len);
+				rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
+				cattsoft_uart_data_handle(payload, dev_info->did, payload_len);
 				rlt_queue_free_msg(que_msg);
 			}
 
@@ -215,9 +284,10 @@ void rlk_tcp_send_func(int argc, char *argv[])
 							if(ret == 1)
 							{
 								set_http_status(DEVICE_CONFIG_FINISH);
-								log_printf(LOG_DEBUG"[%s]m2m server:%s    m2m port:%d\n",__FUNCTION__,m2m_server,m2m_port);
+								printf(LOG_DEBUG"[%s]m2m server:%s    m2m port:%d\n",__FUNCTION__,m2m_server,m2m_port);
 								//close http socket and create socket connect m2m server
-								close(socket_fd);   
+								close(socket_fd);  
+								socket_fd = -1; 
 								ret = tcp_socket_set(m2m_server, m2m_port, 0);          
 								if(ret >= 0)
 								{
@@ -227,7 +297,19 @@ void rlk_tcp_send_func(int argc, char *argv[])
 								if(ret == 1)
 								{
 									set_m2m_status(M2M_LOGIN_RES);
+									set_http_status(DEVICE_CONFIG_FINISH);
 								}                
+							}
+							rlt_queue_free_msg(que_msg);
+							break;
+
+						case DEVICE_LOGOUT_RES:
+							ret = cattsoft_http_logout(que_msg.data, response_code);
+							if(ret == 1)
+							{
+								rlt_device_info_clean();
+								rlt_wifi_info_clean();
+								sys_reset();                
 							}
 							rlt_queue_free_msg(que_msg);
 							break;
@@ -245,6 +327,7 @@ void rlk_tcp_send_func(int argc, char *argv[])
 							ret = cattsoft_m2m_login_response(que_msg.data);
 							if(ret == 1)
 							{
+								rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
 								ret = cattsoft_m2m_subscribe_topic_request(dev_info->did, 1);
 								if(ret == 1)
 								{
@@ -258,6 +341,7 @@ void rlk_tcp_send_func(int argc, char *argv[])
 							ret = cattsoft_m2m_subscribe_response(que_msg.data);
 							if(ret == 1)
 							{
+								rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
 								ret = cattsoft_m2m_subscribe_topic_request(dev_info->did, 2);
 								if(ret == 1)
 								{
@@ -272,6 +356,7 @@ void rlk_tcp_send_func(int argc, char *argv[])
 							ret = cattsoft_m2m_subscribe_response(que_msg.data);
 							if(ret == 1)
 							{
+								rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
 								ret = cattsoft_m2m_subscribe_topic_request(dev_info->did, 3);
 								if(ret == 1)
 								{
@@ -289,6 +374,8 @@ void rlk_tcp_send_func(int argc, char *argv[])
 								set_cloud_connect_status(CLOUD_CONNECT);
 								set_wifi_status_bit(CLOUD_CONNECT_BIT, 1);
 								set_heartbeat_init();
+								set_dataresp_timer_init();
+								
 							}
 							rlt_queue_free_msg(que_msg);
 							break;

@@ -7,9 +7,13 @@
 #include "common.h"
 
 unsigned char ssid_info[512] = {0};
-unsigned int offset = 0;
+unsigned int offset = 1;
 
 static unsigned short net2uart_sn = 0;
+static unsigned int temp_61_sockfd = 0;
+static unsigned short temp_61_sn = 0;
+
+
 
 unsigned short get_new_packet_sn()
 {
@@ -50,9 +54,19 @@ unsigned short CRC_Calculate(unsigned int Length, unsigned char *buf)
 	return (unsigned short)(~CRC);
 }
 
+void str2hex(unsigned char *src, unsigned char *dst, int len)
+{
+	int i;
+	for(i = 0; i < len/2; i++)
+	{
+		dst[i] = ((src[2*i] - 0x30) << 4)  | (src[2*i + 1] - 0x30);
+	}
+}
 
 void net_packet_build(unsigned short msg_type, unsigned short packet_sn, unsigned char *msg_body, unsigned short msgbody_len, unsigned char *packet)
 {
+	unsigned char temp_buff[9];
+	t_dev_info *dev_info;
 	packet[0] = NET_SYNC;
 	packet[1] = NET_SYNC;
 	packet[2] = NET_PACKET_VER;
@@ -60,15 +74,26 @@ void net_packet_build(unsigned short msg_type, unsigned short packet_sn, unsigne
 	*(unsigned short *)&packet[4] = htons(msgbody_len + NET_PACKET_HEAD);
 	*(unsigned short *)&packet[6] = htons(msg_type);
 	*(unsigned short *)&packet[8] = htons(packet_sn);
-	//print_hex(packet,sizeof(packet));
-	//memcpy(&data[16], did, DID_LEN);            //need to add did
-	memcpy(&packet[24], msg_body, msgbody_len);
-	*(unsigned short *)&packet[msgbody_len + NET_PACKET_HEAD -2] = htons(CRC_Calculate(msgbody_len + 22, &packet[2]));
+	dev_info = (t_dev_info *)malloc(sizeof(t_dev_info));
+	if(dev_info == NULL)
+	{
+		log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
+		return;
+	}
+	memset((unsigned char *)dev_info, 0, sizeof(t_dev_info));
+	rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
+	if(dev_info->did[0] != 0xff)
+	{
+		str2hex(dev_info->did, temp_buff, DID_LEN);
+		memcpy(&packet[16], temp_buff, 9);
+	}
+	memcpy(&packet[25], msg_body, msgbody_len);
+	*(unsigned short *)&packet[msgbody_len + NET_PACKET_HEAD -2] = htons(CRC_Calculate(msgbody_len + 23, &packet[2]));
 }
 
-
-void set_wifi_info_fill_in(unsigned char ssid_lenth, rtw_security_t security, unsigned char *ssid)
+void set_wifi_info_fill_in(int ap_cnt, unsigned char ssid_lenth, rtw_security_t security, unsigned char *ssid)
 {
+	ssid_info[0] = ap_cnt;
 	ssid_info[offset] = ssid_lenth;
 	offset++;
 	if(security == RTW_SECURITY_OPEN)
@@ -100,9 +125,27 @@ static rtw_result_t app_scan_result_handler( rtw_scan_handler_result_t* malloced
 		record->SSID.val[record->SSID.len] = 0; /* Ensure the SSID is null terminated */
 		if(ap_num < 20)
 		{
-			set_wifi_info_fill_in(strlen(record->SSID.val), record->security, record->SSID.val);
 			ap_num++;
+			set_wifi_info_fill_in(ap_num, strlen(record->SSID.val), record->security, record->SSID.val);			
+		}	
+	}
+	else
+	{
+		unsigned char *tdata;
+		unsigned int tdata_len;
+		tdata_len = NET_PACKET_HEAD + offset;
+		tdata = (unsigned char *)malloc(tdata_len);
+		if(tdata == NULL)
+		{
+			log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
+			return RTW_ERROR;
 		}
+		memset(tdata, 0, tdata_len);
+		net_packet_build(AP_LIST_RES, temp_61_sn, ssid_info, offset, tdata);
+		log_printf(LOG_DEBUG"---->APP:\n");
+		print_hex(tdata, tdata_len);
+		write(temp_61_sockfd, tdata, tdata_len);
+		free(tdata);
 	}
 	return RTW_SUCCESS;
 }
@@ -159,26 +202,12 @@ int wifi_info_parse(unsigned char *data)
 void cmd_0x0061_handle(unsigned short packet_sn, unsigned int socket_fd)
 {
 	int ret;
-	unsigned char *tdata;
-	unsigned int tdata_len;
+	temp_61_sockfd = socket_fd;
+	temp_61_sn = packet_sn;
 	if((ret = wifi_scan_networks(app_scan_result_handler, NULL )) != RTW_SUCCESS)
 	{
 		log_printf(LOG_WARNING"[%s]wifi scan error\n",__func__);
 	}
-	tdata_len = NET_PACKET_HEAD + offset;
-	tdata = (unsigned char *)malloc(tdata_len);
-	if(tdata == NULL)
-	{
-		log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
-		return;
-	}
-	vTaskDelay(2000);
-	memset(tdata, 0, tdata_len);
-	net_packet_build(AP_LIST_RES, packet_sn, ssid_info, offset, tdata);
-	log_printf(LOG_DEBUG"---->APP:\n");
-	print_hex(tdata, tdata_len);
-	write(socket_fd, tdata, tdata_len);
-	free(tdata);
 }
 
 
@@ -236,7 +265,8 @@ void cmd_0x0063_handle(unsigned char *data, unsigned short packet_sn, unsigned i
 	log_printf(LOG_DEBUG"---->APP:\n");
 	print_hex(tdata, tdata_len);
 	write(socket_fd, tdata, tdata_len);
-	free(tdata);                                            //todo
+	free(tdata); 
+	sys_reset();                                            //todo
 }               
 
 
@@ -290,7 +320,7 @@ void net_data_parse(unsigned char *data, unsigned int data_len, unsigned int soc
 		return;
 	}
 
-	memcpy(msg_body, &data[24], msgbody_len);
+	memcpy(msg_body, &data[25], msgbody_len);
 
 	temp_crc = (data[data_len - 2] << 8) | data[data_len - 1];
 
@@ -315,6 +345,9 @@ unsigned short get_uart2net_packet_sn()
 }
 
 
+extern TimerHandle_t dataresp_timer;
+
+
 int data_from_uart_parse(unsigned char *data, unsigned char *tx_data, unsigned int data_len)
 {
 	unsigned int rx_data_len = 0;
@@ -323,10 +356,12 @@ int data_from_uart_parse(unsigned char *data, unsigned char *tx_data, unsigned i
 	switch(msg_type)
 	{
 		case CMD_DEVICE_CONTROL:
+			xTimerStop(dataresp_timer, 0);
 			net_packet_build(WIFI_TO_M2M__RES_ACK, get_uart2net_packet_sn(), data, data_len, tx_data);   
 			break;
 
 		case CMD_GET_DEVICE_STATUS:
+			xTimerStop(dataresp_timer, 0);
 			net_packet_build(WIFI_TO_M2M__RES_ACK, get_new_packet_sn(), data, data_len, tx_data);    
 			break;
 
@@ -358,12 +393,12 @@ int data_from_m2m_parse(unsigned char *data, unsigned char *tx_data, unsigned in
 		psn = (unsigned short*)&data[8];
 	    sn = ntohs(*psn);
 	    set_net2uart_packet_sn(sn);
-	    memcpy(tx_data, &data[24], tx_data_len);
+	    memcpy(tx_data, &data[25], tx_data_len);
     }
 
     else if(cmd == 0x8022)
     {
-	    memcpy(tx_data, &data[24], tx_data_len);
+	    memcpy(tx_data, &data[25], tx_data_len);
     }
     return tx_data_len;
 }

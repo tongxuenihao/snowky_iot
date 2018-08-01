@@ -12,16 +12,16 @@
 #define CONFIG_DATA_ADDRESS		((0x100000) - (0x1000))
 #define CONFIG_DEVICE_INFO		((0x100000) - (0x2000))
 
-#define DID_LEN 12
-#define TOKEN_LEN 64
-#define ACCESS_KEY 32
+#define DID_LEN 18
+#define TOKEN_LEN 32
+#define ACCESS_KEY 6
 
 typedef struct dev_info{
 	unsigned char dev_sn[29];
 	unsigned char dev_ver[10];
-	unsigned char did[13];
-	unsigned char access_token[65];
-	unsigned char access_key[33];
+	unsigned char did[19];
+	unsigned char access_token[33];
+	unsigned char access_key[7];
 	unsigned char dev_type;
 }t_dev_info;
 

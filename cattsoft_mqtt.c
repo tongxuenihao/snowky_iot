@@ -140,11 +140,13 @@ unsigned short mqtt_parse_publish_msg(const unsigned char* buf, unsigned char** 
 int send_packet(int socket_fd, unsigned char *buff, unsigned int buff_len)
 {
 	int ret;
+	log_printf(LOG_DEBUG"---->NET:\n");
+    print_hex(buff, buff_len);
 	ret = send(socket_fd, buff, buff_len, 0);
 	if(ret > 0)
 	{
-		    log_printf(LOG_DEBUG"---->NET(%d):\n", ret);
-    		print_hex(buff, buff_len);
+		    //log_printf(LOG_DEBUG"---->NET:\n");
+    		//print_hex(buff, buff_len);
 	}
 	return ret;
 }
@@ -163,7 +165,7 @@ static void mqtt_init(t_mqtt_broke *broke, char *clientid)
 	}
 	else
 	{
-		strcpy(broke->clientid, "emqtt");
+		strcpy(broke->clientid, "xuetong");
 	}
 	broke->clean_session = 1;
 }
@@ -177,13 +179,15 @@ static void mqtt_auth_init(t_mqtt_broke *broke, char *user_name, char *user_pass
 
 	if(user_password && user_password[0] != '\0')
 	{
-		strncpy(broke->password, user_name, sizeof(broke->password) - 1);
+		strncpy(broke->password, user_password, sizeof(broke->password) - 1);
 	}
 }
 
-static int mqtt_connect(t_mqtt_broke *broker) 
+static int mqtt_connect(t_mqtt_broke *broker,unsigned char *dev_did, int did_len) 
 {
-	unsigned char flags = 0x00;
+    char sub_topic_buff[128];            //fix
+    int topiclen;
+    unsigned char flags = 0x00;
     int ret;
     unsigned char *fixed_header = NULL;
     int fixed_header_len;
@@ -193,15 +197,15 @@ static int mqtt_connect(t_mqtt_broke *broker)
     unsigned short clientidlen,usernamelen,passwordlen,payload_len;
     unsigned char fixed_header_size;
     unsigned char remain_len;
-    unsigned char var_header[12] = {
-        0x00,0x06,0x4d,0x51,0x49,0x73,0x64,0x70, // Protocol name: MQIsdp
-        0x03, // Protocol version
+    unsigned char var_header[10] = {
+        0x00,0x04,0x4D,0x51,0x54,0x54, // Protocol name: MQTT
+        0x04, // Protocol version
         0, // Connect flags
         0, 0, // Keep alive
     };
 		
-    var_header[10]=  broker->alive>>8;
-    var_header[11]= broker->alive&0xFF;
+    var_header[8]=  broker->alive>>8;
+    var_header[9]= broker->alive&0xFF;
 	
     clientidlen = strlen(broker->clientid);
     usernamelen = strlen(broker->user_name);
@@ -218,7 +222,16 @@ static int mqtt_connect(t_mqtt_broke *broker)
     {
         flags |= MQTT_CLEAN_SESSION;
     }
-    var_header[9]= flags;
+
+	flags |= MQTT_WILL_FLAG;                //fix
+    payload_len += (did_len + strlen("dev2ser/lastWill/") + 2);
+
+	
+	//flags |= MQTT_WILL_QoS;  
+
+	payload_len += (strlen("close") + 2);
+
+    var_header[7]= flags;
     fixed_header_size = 2; 
     remain_len = sizeof(var_header) + payload_len;
     if (remain_len > 127) 
@@ -262,6 +275,21 @@ static int mqtt_connect(t_mqtt_broke *broker)
     packet[offset++] = clientidlen & 0xFF;
     memcpy(packet+offset, broker->clientid, clientidlen);
     offset += clientidlen;
+#if 1
+    topiclen = did_len + strlen("dev2ser/lastWill/");
+    memset(sub_topic_buff, 0, 128);           //fix
+    sub_topic_buff[0] = topiclen >> 8;
+    sub_topic_buff[1] = topiclen & 0xFF;
+    memcpy(sub_topic_buff + 2, "dev2ser/lastWill/", strlen("dev2ser/lastWill/"));
+    memcpy(sub_topic_buff + strlen("dev2ser/lastWill/") + 2, dev_did, did_len);
+
+	sub_topic_buff[topiclen + 2] = strlen("close") >> 8;
+	sub_topic_buff[topiclen + 3] = strlen("close") & 0xFF;
+	memcpy(sub_topic_buff + topiclen + 4, "close", strlen("close"));
+	
+    memcpy(packet+offset, sub_topic_buff, topiclen + 9);
+    offset += (topiclen + 9);       //fix	
+#endif
 
     packet[offset++] = usernamelen>>8;
     packet[offset++] = usernamelen&0xFF;
@@ -271,8 +299,9 @@ static int mqtt_connect(t_mqtt_broke *broker)
     packet[offset++] = passwordlen>>8;
     packet[offset++] = passwordlen&0xFF;
     memcpy(packet+offset, broker->password, passwordlen);
-    offset += passwordlen;	
-
+    offset += passwordlen;
+	
+	print_hex(packet, offset);
     ret = broker->mqtt_send(broker->socket_fd, packet, packet_len);
     if(ret < packet_len) 
     {      
@@ -300,8 +329,7 @@ int mqtt_connect_packet_send(t_mqtt_broke *pst_mqtt_broker, unsigned int socket_
 	}
 	pst_mqtt_broker->socket_fd = socket_fd;
 	pst_mqtt_broker->mqtt_send = send_packet;
-
-	ret = mqtt_connect(pst_mqtt_broker);
+	ret = mqtt_connect(pst_mqtt_broker, user_name, DID_LEN);
 	if(ret == 1)
 	{
 		log_printf(LOG_DEBUG"[%s]connect packet send ok\n",__FUNCTION__);
@@ -370,6 +398,7 @@ int mqtt_subscribe(t_mqtt_broke *broker, char *topic, unsigned short *message_id
     utf_topic[0] = topiclen >> 8;
     utf_topic[1] = topiclen & 0xFF;
     memcpy(utf_topic + 2, topic, topiclen);
+	utf_topic[utf_topic_len - 1] = 0x02;
 
     fixed_header[0] = MQTT_MSG_SUBSCRIBE | MQTT_QOS1_FLAG;
     fixed_header[1] = sizeof(var_header) + utf_topic_len;
@@ -406,12 +435,14 @@ void subtopic_init(char *topic_buff, char *dev_did, int flag)
     did_len = strlen(dev_did);
     if(did_len != DID_LEN)
     {
+        printf("did:%s\n",dev_did);
+        printf("[%s]did length:%d\n",__FUNCTION__,did_len);
         log_printf(LOG_WARNING"[%s]did length error\n",__FUNCTION__);
-        return;
+        return;  
     }
     switch(flag)
     {
-        case 1:
+        case 1:		
             memcpy(topic_buff, "ser2dev/req/", strlen("ser2dev/req/"));
             memcpy(topic_buff + strlen("ser2dev/req/"), dev_did, did_len);
             topic_buff[did_len + strlen("ser2dev/req/")] = '\0';
@@ -632,9 +663,7 @@ int mqtt_publish_with_qos(t_mqtt_broke *broker, unsigned char *rdata , unsigned 
     memcpy(tdata + fixed_header_len, var_header, var_header_len);
     memcpy(tdata + fixed_header_len + var_header_len, rdata, rdata_len);
 
-    log_printf(LOG_DEBUG"---->NET:\n");
-    print_hex(tdata, tdata_len);
-    //ret = broker->mqtt_send(broker->socket_fd, tdata, tdata_len);
+    ret = broker->mqtt_send(broker->socket_fd, tdata, tdata_len);
     if(ret < tdata_len) 
     {      
         free(fixed_header);
@@ -672,6 +701,7 @@ int cattsoft_m2m_heartbeat_request(int socket_fd)
     return mqtt_ping(socket_fd);
 }
 
+extern TimerHandle_t dataresp_timer;
 
 void cattsoft_dispatch_publish_packet(unsigned char *rdata, unsigned int rdata_len)
 {
@@ -689,13 +719,14 @@ void cattsoft_dispatch_publish_packet(unsigned char *rdata, unsigned int rdata_l
     topic[topiclen] = '\0';
     payload_len = mqtt_parse_publish_msg(rdata, &payload); 
 
-    log_printf(LOG_INFO"[%s]cloud data from topic :%s\n",topic);
+    printf(LOG_INFO"[%s]cloud data from topic :%s\n",__FUNCTION__,topic);
 
     print_hex(payload, payload_len);
     if(strncmp((const char*)topic,"ser2dev/req/",strlen("ser2dev/req/"))==0)
     { 
         uart_packet_len = data_from_m2m_parse(payload, uart_packet, payload_len);
         uart_data_send(uart_packet, uart_packet_len);
+		xTimerStart(dataresp_timer, 0);
     }
 
     else if(strncmp((const char*)topic,"ser2dev/res/",strlen("ser2dev/res/"))==0)

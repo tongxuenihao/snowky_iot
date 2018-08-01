@@ -7,6 +7,7 @@
 #include "common.h"
 
 extern unsigned int sn_get_success;
+extern unsigned int ver_get_success;
 unsigned char wifi_status = 0;
 unsigned char cloud_status =0;
 
@@ -61,6 +62,25 @@ unsigned char wifi_get_signal_level()
 	}
 }
 
+void device_version_get()
+{
+	log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
+	unsigned char msg_body[1] = {0};
+	unsigned char *tdata;
+	unsigned int tdata_len = PACKET_LEN_INCLUDE_SYNC + 1;
+	tdata = (unsigned char *)malloc(tdata_len);
+	if(tdata == NULL)
+	{
+		log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
+		return;
+	}
+	msg_body[0] = 0;
+	memset(tdata, 0, tdata_len);
+	tdata_len = uart_packet_build(CMD_GET_MCU_VERSION, msg_body, 1, tdata);
+	uart_data_send(tdata, tdata_len);
+	free(tdata);
+}
+
 
 void uart_cmd_0x06_handle()
 {
@@ -83,6 +103,7 @@ void uart_cmd_0x06_handle()
 	free(tdata);
 }
 
+
 void uart_cmd_0x07_handle(unsigned char *data, unsigned int data_len)
 {
 	log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
@@ -101,6 +122,9 @@ void uart_cmd_0x07_handle(unsigned char *data, unsigned int data_len)
 	dev_info->dev_type = data[2];
 	rlt_device_info_write((unsigned char *)dev_info, sizeof(t_dev_info));
 	free(dev_info);
+
+	//device_version_get();
+
 }
 
 void uart_cmd_0x08_handle()
@@ -139,28 +163,61 @@ void uart_cmd_0x09_handle(unsigned char *data, unsigned int data_len)
 	memcpy(dev_info->dev_ver, &data[10], DEV_VER_LEN);
 	dev_info->dev_ver[DEV_VER_LEN] = '\0';
 	rlt_device_info_write((unsigned char *)dev_info, sizeof(t_dev_info));
+	ver_get_success = 1;
 	free(dev_info);
 }
 
+
+extern unsigned short module_status;
+extern xQueueHandle msg_queue;
 void uart_cmd_0x0C_handle()
 {	
-	log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
+	int ret;
 	unsigned char msg_body[3] = {0};
 	unsigned char *tdata;
 	unsigned int tdata_len = PACKET_LEN_INCLUDE_SYNC + 3;
-	tdata = (unsigned char *)malloc(tdata_len);
-	if(tdata == NULL)
+
+	rtw_wifi_setting_t *wifi_info;
+
+	wifi_info = (rtw_wifi_setting_t *)malloc(sizeof(rtw_wifi_setting_t));
+	if(wifi_info == NULL)
 	{
 		log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
 		return;
 	}
-	msg_body[0] = 1;
-	memset(tdata, 0, tdata_len);
-	tdata_len = uart_packet_build(CMD_REQUEST_WIFI_CONFIG, msg_body, 3, tdata);
-	uart_data_send(tdata, tdata_len);
-	rlt_wifi_info_clean();
-	log_printf(LOG_DEBUG"[%s]----------------->enter wifi config\n",__FUNCTION__);
-	rlt_softap_config_entry();
-	free(tdata);	
+	memset((unsigned char *)wifi_info, 0, sizeof(rtw_wifi_setting_t));
+	ret = rlt_wifi_info_read((unsigned char *)wifi_info, sizeof(rtw_wifi_setting_t));
+	if(ret == 0)
+	{
+		if(*((uint32_t *) wifi_info) != ~0x0 && strlen(wifi_info->ssid))
+		{
+			if(module_status & CLOUD_CONNECT_BIT)
+			{
+				rlt_msg_queue_send(msg_queue, DEVICE_LOGOUT, NULL, 0);
+				return;
+			}
+			else
+			{
+				rlt_device_info_clean();
+				rlt_wifi_info_clean();
+				sys_reset();  
+			}
+		}
+		
+		tdata = (unsigned char *)malloc(tdata_len);
+		if(tdata == NULL)
+		{
+			log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
+			return;
+		}
+		msg_body[0] = 1;
+		memset(tdata, 0, tdata_len);
+		tdata_len = uart_packet_build(CMD_REQUEST_WIFI_CONFIG, msg_body, 3, tdata);
+		uart_data_send(tdata, tdata_len);
+		rlt_wifi_info_clean();
+		log_printf(LOG_DEBUG"[%s]----------------->enter wifi config\n",__FUNCTION__);
+		rlt_softap_config_entry();
+		free(tdata);
+	}	
 }
 

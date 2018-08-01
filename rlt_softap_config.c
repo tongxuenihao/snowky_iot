@@ -9,6 +9,7 @@
 
 #define BCAST_PORT 28899
 int recv_0x0082_flag = 0;
+int udp_socket_fd = -1;
 
 extern struct netif xnetif[NET_IF_NUM]; 
 
@@ -142,6 +143,7 @@ void rlt_tcp_server_start(int argc, char *argv[])
 						if(fd >= 0) 
 						{
 							printf("accept socket fd(%d)\n", fd);
+							recv_0x0082_flag = 1;
 							socket_used[fd] = 1;
 							if(fd > max_socket_fd)
 								max_socket_fd = fd;
@@ -186,29 +188,11 @@ int rlt_tcp_server_entry()
 
 void rlt_generate_ap_name(unsigned char *ap_name);
 
-void rlt_broadcast_recv_func(int argc, char *argv[])
+void rlt_broadcast_recv_func()
 {
-	unsigned char *ip;
-	unsigned char *mac;
-	unsigned char *msg_body;
-	unsigned int msgbody_len;
-	unsigned char *tdata;
-	unsigned int tdata_len;
 	unsigned char rxbuf[128];
-	unsigned char ap_name[32];
 	struct sockaddr_in from_addr;
-	int local_fd = -1;
 	int from_addr_len = sizeof(from_addr);
-
-	memset(ap_name, 0, 32);
-	rlt_generate_ap_name(ap_name);
-
-
-	if((local_fd = udp_socket_init(BCAST_PORT)) < 0) 
-	{
-		printf("socket error\n");
-		goto exit;
-	}
 
 	while(1) 
 	{
@@ -216,58 +200,23 @@ void rlt_broadcast_recv_func(int argc, char *argv[])
 		struct timeval timeout;
 
 		FD_ZERO(&read_fds);
-		FD_SET(local_fd, &read_fds);
+		FD_SET(udp_socket_fd, &read_fds);
 		timeout.tv_sec = SELECT_TIMEOUT;
 		timeout.tv_usec = 0;
 		memset(rxbuf, 0, 128);
 
-		if(select(local_fd + 1, &read_fds, NULL, NULL, &timeout)) 
+		if(select(udp_socket_fd + 1, &read_fds, NULL, NULL, &timeout)) 
 		{
-			int read_size = recvfrom(local_fd, rxbuf, 128, 0, (struct sockaddr *)&from_addr, &from_addr_len);
+			int read_size = recvfrom(udp_socket_fd, rxbuf, 128, 0, (struct sockaddr *)&from_addr, &from_addr_len);
 			if(read_size > 0)
 			{
-				if((rxbuf[0] == 0x5A) && (rxbuf[7] == 0x82))
+				printf("len:%d\n",read_size);
+				if((rxbuf[0] == 0x5A) && (rxbuf[7] == 0x83))
 				{
 					recv_0x0082_flag = 1;
-					if(ap_name == NULL)
-					{
-						msgbody_len = 14;
-					}
-					else
-					{
-						msgbody_len = 15 + strlen(ap_name);
-					}
-					msg_body = (unsigned char *)malloc(msgbody_len);
-					if(msg_body == NULL)
-					{
-						log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
-						return;
-					}
-					ip = LwIP_GetIP(&xnetif[0]);
-					memset(msg_body, 0, msgbody_len);
-					memcpy(msg_body, ip, 4);                                    //little endian
-					*(unsigned int *)&msg_body[4] = htonl(SERVER_PORT);
-					mac = LwIP_GetMAC(&xnetif[0]);
-					memcpy(&msg_body[8], mac, 6);
-					if(ap_name != NULL)
-					{
-						msg_body[14] = strlen(ap_name);
-						strcpy(&msg_body[15], ap_name);
-					}
-
-					tdata_len = NET_PACKET_HEAD + msgbody_len;
-					tdata = (unsigned char *)malloc(tdata_len);
-					if(tdata == NULL)
-					{
-						log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
-						return;
-					}
-					net_packet_build(APP_BROADCAST_RES, get_new_packet_sn(), msg_body, msgbody_len, tdata);
-					print_hex(tdata, tdata_len);
-					sendto(local_fd, tdata, tdata_len, 0, &from_addr, sizeof(struct sockaddr));
+					return;
 				}
 			}
-	
 		}
 		else
 		{
@@ -278,8 +227,8 @@ void rlt_broadcast_recv_func(int argc, char *argv[])
 	}
 
 exit:
-	if(local_fd >= 0)
-		close(local_fd);
+	if(udp_socket_fd >= 0)
+		close(udp_socket_fd);
 	vTaskDelete(NULL);
 }
 
@@ -294,7 +243,7 @@ int rlt_broadcast_recv_entry()
 }
 
 
-void rlt_broadcast_func(unsigned char *ap_name)
+void rlt_broadcast_func(unsigned char *ap_name, int flag)
 {
 	struct sockaddr_in to;
 	unsigned char *ip;
@@ -303,10 +252,10 @@ void rlt_broadcast_func(unsigned char *ap_name)
 	unsigned int msgbody_len;
 	unsigned char *tdata;
 	unsigned int tdata_len;
-	int socket_fd;
+	//int socket_fd;
 	int send_broadcast_pk_cnt = 0;
-	socket_fd = udp_socket_init(BCAST_PORT);
-	if(socket_fd < 0)
+	udp_socket_fd = udp_socket_init(BCAST_PORT);
+	if(udp_socket_fd < 0)
 	{
 		log_printf(LOG_WARNING"[%s]udp init error\n",__FUNCTION__);
 	}
@@ -349,14 +298,24 @@ void rlt_broadcast_func(unsigned char *ap_name)
 	to.sin_addr.s_addr = htonl(0xffffffff);
 	while(1)
 	{
-		if((recv_0x0082_flag != 1) && (send_broadcast_pk_cnt < 10))
+		if((recv_0x0082_flag != 1) /*&& (send_broadcast_pk_cnt < 10)*/)
 		{
 			send_broadcast_pk_cnt++;
 			log_printf(LOG_DEBUG"---->APP:\n");             //debug,mark
 			memset(tdata, 0, tdata_len);
-			net_packet_build(WIFI_BROADCAST, get_new_packet_sn(), msg_body, msgbody_len, tdata);
+			if(flag)
+			{
+				net_packet_build(WIFI_BROADCAST_DEVICE_DISCOVER, get_new_packet_sn(), msg_body, msgbody_len, tdata);
+
+			}
+			else
+			{
+				net_packet_build(WIFI_BROADCAST, get_new_packet_sn(), msg_body, msgbody_len, tdata);
+
+			}
+			//net_packet_build(WIFI_BROADCAST, get_new_packet_sn(), msg_body, msgbody_len, tdata);
 			print_hex(tdata, tdata_len);
-			sendto(socket_fd, tdata, tdata_len, 0, &to, sizeof(struct sockaddr));
+			sendto(udp_socket_fd, tdata, tdata_len, 0, &to, sizeof(struct sockaddr));
 		}
 		vTaskDelay(3000);
 	}
@@ -410,8 +369,8 @@ void rlt_softap_start(rlt_ap_setting *ap_info)
 	dhcps_init(&xnetif[0]);
 
 	rlt_tcp_server_entry();
-	rlt_broadcast_func(ap_info->ssid);
-	rlt_broadcast_recv_entry();
+	rlt_broadcast_func(ap_info->ssid,0);
+	//rlt_broadcast_recv_entry();
 	while(1)
 	{
 		vTaskDelay(500);

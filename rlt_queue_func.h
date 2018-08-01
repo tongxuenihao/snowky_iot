@@ -17,6 +17,7 @@ enum{
 	SET_TCP_SOCKET = 0,
 	DATA_FROM_UART,
 	DATA_FROM_NET,
+	DEVICE_LOGOUT,
 };
 
 int rlt_msg_queue_create(xQueueHandle *mp_que,int msg_num);

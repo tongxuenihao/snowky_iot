@@ -43,6 +43,7 @@ typedef struct _var{
 
 #define MQTT_CLEAN_SESSION  (1<<1)
 #define MQTT_WILL_FLAG      (1<<2)
+#define MQTT_WILL_QoS       (1<<3)
 #define MQTT_WILL_RETAIN    (1<<5)
 #define MQTT_USERNAME_FLAG  (1<<7)
 #define MQTT_PASSWORD_FLAG  (1<<6)
