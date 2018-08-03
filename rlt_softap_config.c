@@ -210,7 +210,6 @@ void rlt_broadcast_recv_func()
 			int read_size = recvfrom(udp_socket_fd, rxbuf, 128, 0, (struct sockaddr *)&from_addr, &from_addr_len);
 			if(read_size > 0)
 			{
-				printf("len:%d\n",read_size);
 				if((rxbuf[0] == 0x5A) && (rxbuf[7] == 0x83))
 				{
 					recv_0x0082_flag = 1;

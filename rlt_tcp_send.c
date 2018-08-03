@@ -95,7 +95,7 @@ int cattsoft_mqtt_socket_reset()
 	}
 	set_cloud_connect_status(CLOUD_DISCONNECT);
 	set_wifi_status_bit(CLOUD_CONNECT_BIT, 0);
-	ret = tcp_socket_set(0, 0, 1);
+	ret = tcp_socket_set(HTTP_SERVER, HTTP_PORT, 0);
 	return ret;
 }
 
@@ -108,6 +108,7 @@ int tcp_socket_set(unsigned char *host, unsigned int server_port, unsigned int r
 	static struct sockaddr_in remote_addr;
 	struct hostent *server;
 	static int reconnect_times = 0;
+	t_dev_info *dev_info;
 
 	static unsigned char *sev_ip;
 	static short sev_port;
@@ -158,7 +159,13 @@ int tcp_socket_set(unsigned char *host, unsigned int server_port, unsigned int r
 			log_printf(LOG_DEBUG"[%s]connect OK\n",__FUNCTION__);
 			if(reconnect_flag)
 			{
-				ret = cattsoft_m2m_login_request(socket_fd, M2M_NAME, M2M_PASSWD);
+				dev_info = (t_dev_info *)malloc(sizeof(t_dev_info));
+				if(dev_info == NULL)
+				{
+					log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
+					return -1;
+				}
+				ret = cattsoft_m2m_login_request(socket_fd, dev_info->did, dev_info->access_key);
 				set_http_status(DEVICE_CONFIG_FINISH);
 				set_m2m_status(M2M_LOGIN_RES);
 			}
@@ -206,7 +213,6 @@ void rlk_tcp_send_func(int argc, char *argv[])
 				if(ret >= 0)
 				{
 					rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
-					print_hex(dev_info->did, 19);
 					if(*((uint32_t *) dev_info) != ~0x0 && strlen(dev_info->did) && (dev_info->did[0] != 0xff))
 					{
 						//ret = cattsoft_device_register_request(socket_fd);

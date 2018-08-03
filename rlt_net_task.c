@@ -157,8 +157,8 @@ Try_again:
 	return 0;
 }
 
-#define XT_SSID "Tenda_45AF00"
-#define XT_PASSWD "123456789"
+#define XT_SSID "ojbk"
+#define XT_PASSWD "ojbk1234"
 
 int xt_connect_wifi_config()
 {
@@ -233,6 +233,7 @@ void net_udp_init()
 void rlk_net_task(int argc, char *argv[])
 {
 	int ret;
+	t_dev_info *dev_info;
 	rtw_wifi_setting_t *wifi_info;
 #if 1
 	while(!sn_get_success || !ver_get_success)
@@ -241,6 +242,14 @@ void rlk_net_task(int argc, char *argv[])
 	}
 #endif
 	//goto connect_ap;
+
+	dev_info = (t_dev_info *)malloc(sizeof(t_dev_info));
+	if(dev_info == NULL)
+	{
+		log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
+		return;
+	}
+
 	wifi_info = (rtw_wifi_setting_t *)malloc(sizeof(rtw_wifi_setting_t));
 	if(wifi_info == NULL)
 	{
@@ -265,9 +274,14 @@ void rlk_net_task(int argc, char *argv[])
 connect_ap:
 	ret = connect_wifi_config(wifi_info);
 	//ret = xt_connect_wifi_config();
-	if(ret == 0)
+	rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
+	if(*((uint32_t *) dev_info) != ~0x0 && strlen(dev_info->did) && (dev_info->did[0] != 0xff))
 	{
-		//net_udp_init();
+		net_event_init();
+	}
+	else
+	{
+		net_udp_init();
 		net_event_init();
 	}
 	goto null_model;

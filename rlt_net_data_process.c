@@ -261,7 +261,7 @@ void cmd_0x0063_handle(unsigned char *data, unsigned short packet_sn, unsigned i
 
 	memset(tdata, 0, tdata_len);
 	msg_body[0] = 0x01;
-	net_packet_build(WIFI_INFO_ACK, packet_sn, msg_body, 1, tdata);
+	net_packet_build(WIFI_MODE_CHANGE_ACK, packet_sn, msg_body, 1, tdata);
 	log_printf(LOG_DEBUG"---->APP:\n");
 	print_hex(tdata, tdata_len);
 	write(socket_fd, tdata, tdata_len);
