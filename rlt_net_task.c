@@ -226,7 +226,7 @@ void net_event_init()
 void net_udp_init()
 {
 	rlt_device_discover_func_entry();
-	rlt_device_discover_resp_func(NULL);
+	//rlt_device_discover_resp_func(NULL);
 
 } 
 

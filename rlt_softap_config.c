@@ -297,10 +297,10 @@ void rlt_broadcast_func(unsigned char *ap_name, int flag)
 	to.sin_addr.s_addr = htonl(0xffffffff);
 	while(1)
 	{
-		if((recv_0x0082_flag != 1) /*&& (send_broadcast_pk_cnt < 10)*/)
+		if((recv_0x0082_flag != 1) && (send_broadcast_pk_cnt < 15))
 		{
 			send_broadcast_pk_cnt++;
-			log_printf(LOG_DEBUG"---->APP:\n");             //debug,mark
+			printf("---->APP(%d):\n",send_broadcast_pk_cnt);             //debug,mark
 			memset(tdata, 0, tdata_len);
 			if(flag)
 			{

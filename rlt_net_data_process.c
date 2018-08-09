@@ -356,13 +356,13 @@ int data_from_uart_parse(unsigned char *data, unsigned char *tx_data, unsigned i
 	switch(msg_type)
 	{
 		case CMD_DEVICE_CONTROL:
-			xTimerStop(dataresp_timer, 0);
+			//xTimerStop(dataresp_timer, 0);
 			net_packet_build(WIFI_TO_M2M__RES_ACK, get_uart2net_packet_sn(), data, data_len, tx_data);   
 			break;
 
 		case CMD_GET_DEVICE_STATUS:
-			xTimerStop(dataresp_timer, 0);
-			net_packet_build(WIFI_TO_M2M__RES_ACK, get_new_packet_sn(), data, data_len, tx_data);    
+			//xTimerStop(dataresp_timer, 0);
+			net_packet_build(WIFI_TO_M2M__RES_ACK, get_uart2net_packet_sn(), data, data_len, tx_data);    
 			break;
 
 		case CMD_DEVICE_STATUS_UPLOAD:

@@ -72,16 +72,25 @@ void dataresp_handle(xTimerHandle pxTimer)
 {
 	unsigned char msg_body[40];
 	unsigned char payload[51];
+	t_dev_info *dev_info;
+
+	dev_info = (t_dev_info *)malloc(sizeof(t_dev_info));
+	if(dev_info == NULL)
+	{
+		log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
+		return;
+	}
 	memset(msg_body, 0, 40);
 	memset(payload, 0, 51);
+	rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
 	uart_packet_build(CMD_GET_DEVICE_STATUS, msg_body, 40, payload);
-	cattsoft_uart_data_handle(payload, DID_XXX, 51);
-	xTimerStop(dataresp_timer, 0);
+	cattsoft_uart_data_handle(payload, dev_info->did, 51);
+	//xTimerStop(dataresp_timer, 0);
 }
 
 int set_dataresp_timer_init()
 {
-	dataresp_timer = xTimerCreate("data handle", 3 * 1000, pdTRUE, NULL, heartbeat_handle);
+	dataresp_timer = xTimerCreate("data handle", 3 * 1000, pdTRUE, NULL, dataresp_handle);
 	return 1;
 }
 
@@ -380,7 +389,7 @@ void rlk_tcp_send_func(int argc, char *argv[])
 								set_cloud_connect_status(CLOUD_CONNECT);
 								set_wifi_status_bit(CLOUD_CONNECT_BIT, 1);
 								set_heartbeat_init();
-								set_dataresp_timer_init();
+								//set_dataresp_timer_init();
 								
 							}
 							rlt_queue_free_msg(que_msg);
@@ -402,7 +411,8 @@ void rlk_tcp_send_func(int argc, char *argv[])
 							break;
 
 						case MQTT_MSG_PUBLISH:
-							cattsoft_dispatch_publish_packet(que_msg.data, que_msg.data_len);
+							log_printf(LOG_DEBUG"[%s]MQTT MSG PUBLISH\n",__FUNCTION__);
+							cattsoft_dispatch_publish_packet(socket_fd, que_msg.data, que_msg.data_len);
 							break;
 					}
 				}

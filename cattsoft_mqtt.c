@@ -703,14 +703,16 @@ int cattsoft_m2m_heartbeat_request(int socket_fd)
 
 extern TimerHandle_t dataresp_timer;
 
-void cattsoft_dispatch_publish_packet(unsigned char *rdata, unsigned int rdata_len)
+void cattsoft_dispatch_publish_packet(int socket_fd, unsigned char *rdata, unsigned int rdata_len)
 {
+	unsigned int ret;
     unsigned char topic[128];
     unsigned int uart_packet_len;
     unsigned char uart_packet[128];
     unsigned int topiclen;
     unsigned char *payload;
     unsigned int payload_len;
+	unsigned char tx_buff[4] = {0x40,0x02,0x00,0x00};
 
     memset(topic, 0, 128);
     memset(uart_packet, 0, 128);
@@ -723,10 +725,18 @@ void cattsoft_dispatch_publish_packet(unsigned char *rdata, unsigned int rdata_l
 
     print_hex(payload, payload_len);
     if(strncmp((const char*)topic,"ser2dev/req/",strlen("ser2dev/req/"))==0)
-    { 
+    {
+    	tx_buff[2] = rdata[34];
+		tx_buff[3] = rdata[35];
+		ret = send(socket_fd, tx_buff, 4, 0);
+		if(ret > 0)
+		{
+			printf("---->NET:\n");
+			print_hex(tx_buff, 4);
+		}
         uart_packet_len = data_from_m2m_parse(payload, uart_packet, payload_len);
         uart_data_send(uart_packet, uart_packet_len);
-		xTimerStart(dataresp_timer, 0);
+		//xTimerStart(dataresp_timer, 0);
     }
 
     else if(strncmp((const char*)topic,"ser2dev/res/",strlen("ser2dev/res/"))==0)
