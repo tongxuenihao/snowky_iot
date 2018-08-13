@@ -8,6 +8,7 @@
 
 
 extern int socket_fd;
+extern int server_link;
 extern xQueueHandle msg_queue;
 
 void rlk_tcp_recv_func(int argc, char *argv[])
@@ -18,10 +19,14 @@ void rlk_tcp_recv_func(int argc, char *argv[])
 	unsigned char rx_buff[512] = {0};
 	while(1) 
 	{
+		//printf("[%s]socket fd:%d\n",__FUNCTION__,socket_fd);
 		FD_ZERO(&read_fds);
 		timeout.tv_sec = 10;
 		timeout.tv_usec = 0;
-
+		while(server_link == -1)
+		{
+			vTaskDelay(1000);
+		}
 		FD_SET(socket_fd, &read_fds);
 
 		if(select(socket_fd + 1, &read_fds, NULL, NULL, &timeout)) 
@@ -37,8 +42,9 @@ void rlk_tcp_recv_func(int argc, char *argv[])
 				rlt_msg_queue_send(msg_queue, DATA_FROM_NET, rx_buff, read_size);
 			}
 		}
+		else
 		{
-			//printf("TCP recv: no data in 10 seconds\n");
+			printf("TCP recv: no data in 10 seconds\n");
 		}
 
 		vTaskDelay(300);

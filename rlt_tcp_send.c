@@ -6,13 +6,14 @@
  ************************************************************************/
 #include "common.h"
 
-#define DID_XXX "12345678"
-
-#define M2M_NAME "xuetong"
-#define M2M_PASSWD "test1234"
+//#define DID_XXX "12345678"
+//#define M2M_NAME "xuetong"
+//#define M2M_PASSWD "test1234"
 
 TimerHandle_t heartbeat_timer;
 TimerHandle_t dataresp_timer;
+
+int server_link = -1;
 
 extern xQueueHandle msg_queue;
 int socket_fd = -1;
@@ -104,7 +105,7 @@ int cattsoft_mqtt_socket_reset()
 	}
 	set_cloud_connect_status(CLOUD_DISCONNECT);
 	set_wifi_status_bit(CLOUD_CONNECT_BIT, 0);
-	ret = tcp_socket_set(HTTP_SERVER, HTTP_PORT, 0);
+	ret = tcp_socket_set(0, 0, 1);
 	return ret;
 }
 
@@ -124,8 +125,6 @@ int tcp_socket_set(unsigned char *host, unsigned int server_port, unsigned int r
 
 	if(reconnect_flag == 0)
 	{
-		//server_host = gethostbyname(host);
-		//memcpy((void *) &remote_addr.sin_addr.s_addr, (void *) server_host->h_addr, server_host->h_length);
 		sev_ip = host;
 		sev_port = server_port;
 	}
@@ -135,8 +134,8 @@ int tcp_socket_set(unsigned char *host, unsigned int server_port, unsigned int r
 		log_printf(LOG_DEBUG"[%s]sys reboot\n",__FUNCTION__);
 		sys_reset();
 	}
-  
-	log_printf(LOG_DEBUG"[%s]%s(%d)\n",__FUNCTION__,((reconnect_times == 0) ? "CONNECT..." : "RECONNECT..."),reconnect_times);
+
+	printf("[%s]%s(%d)\n",__FUNCTION__,((reconnect_times == 0) ? "CONNECT..." : "RECONNECT..."),reconnect_times);
 	if(socket_fd == -1)
 	{
 		if((socket_fd = socket(AF_INET, SOCK_STREAM, 0)) >= 0) 
@@ -155,17 +154,19 @@ int tcp_socket_set(unsigned char *host, unsigned int server_port, unsigned int r
 		    
 		    memset(&remote_addr,0,sizeof(remote_addr));
 		    remote_addr.sin_family = AF_INET;
-		    remote_addr.sin_port = htons(server_port);
-		    remote_addr.sin_addr.s_addr = inet_addr(host);
+		    remote_addr.sin_port = htons(sev_port);
+		    remote_addr.sin_addr.s_addr = inet_addr(sev_ip);
 
 			if(connect(socket_fd, (struct sockaddr *)&remote_addr, sizeof(struct sockaddr)) < 0)
 			{
 				log_printf(LOG_WARNING"[%s]connect error\n",__FUNCTION__);
 				close(socket_fd);
 				reconnect_times++;
+				socket_fd = -1;
 				return -1;
 			}
 			log_printf(LOG_DEBUG"[%s]connect OK\n",__FUNCTION__);
+			server_link = 1;
 			if(reconnect_flag)
 			{
 				dev_info = (t_dev_info *)malloc(sizeof(t_dev_info));
@@ -174,9 +175,9 @@ int tcp_socket_set(unsigned char *host, unsigned int server_port, unsigned int r
 					log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
 					return -1;
 				}
-				ret = cattsoft_m2m_login_request(socket_fd, dev_info->did, dev_info->access_key);
-				set_http_status(DEVICE_CONFIG_FINISH);
-				set_m2m_status(M2M_LOGIN_RES);
+				ret = cattsoft_device_prelogin_request(socket_fd);
+				set_http_status(DEVICE_PRE_LOGIN_RES);
+				//set_m2m_status(M2M_LOGIN_RES);
 			}
 		}
 		else
@@ -190,7 +191,6 @@ int tcp_socket_set(unsigned char *host, unsigned int server_port, unsigned int r
 }
 
 
-
 void rlk_tcp_send_func(int argc, char *argv[])
 {
 	log_printf(LOG_DEBUG"[%s]\n",__FUNCTION__);
@@ -202,6 +202,7 @@ void rlk_tcp_send_func(int argc, char *argv[])
 	int server_ip;
 	int ret;
 	t_queue_msg que_msg;
+	int server_reconnect = -1;
 
 
 	dev_info = (t_dev_info *)malloc(sizeof(t_dev_info));
@@ -244,6 +245,12 @@ void rlk_tcp_send_func(int argc, char *argv[])
 						}
 					}
 				}
+				else
+				{
+					socket_fd = -1;
+					server_link = -1;
+					server_reconnect = 1;
+				}	
 			}
 
 			else if(que_msg.msg_flag == DEVICE_LOGOUT)
@@ -434,13 +441,24 @@ void rlk_tcp_send_func(int argc, char *argv[])
 			if(heartbeat_miss_cnt > 3)
 			{
 				log_printf(LOG_DEBUG"[%s]reset socket connect\n",__FUNCTION__);
+				server_link = -1;
+				sys_reset();
 				ret = cattsoft_mqtt_socket_reset();
 				if(ret >= 0)
 				{
+					
 					set_cloud_connect_status(CLOUD_CONNECT);
 					set_wifi_status_bit(CLOUD_CONNECT_BIT, 1);
 					heartbeat_miss_cnt = 0;
 				}
+			}
+		}
+		else if(server_reconnect == 1)
+		{
+			ret = tcp_socket_set(0, 0, 1);
+			if(ret >= 0)
+			{
+				server_reconnect = -1;
 			}
 		}
 		vTaskDelay(300);	
