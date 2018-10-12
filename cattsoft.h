@@ -31,13 +31,16 @@ enum{
 };
 
 #define HTTP_SERVER "117.71.58.103"
+#define SN_HTTP_SERVER "172.16.1.8"
 #define HTTP_PORT 8087
 //#define HTTP_SERVER_CONNECT "118.178.132.84"
 //#define HTTP_PORT 80
 
-
-#define M2M_SERVER "111.148.9.98"
+#define M2M_SERVER "172.16.1.9"
 #define M2M_PORT 1883
+
+//#define M2M_SERVER "111.148.9.98"
+//#define M2M_PORT 1883
 
 
 

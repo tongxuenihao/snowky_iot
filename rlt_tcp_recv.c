@@ -36,9 +36,9 @@ void rlk_tcp_recv_func(int argc, char *argv[])
 				int read_size = recv(socket_fd, rx_buff, 512, 0);
 				log_printf(LOG_DEBUG"NET---->:\n");
 				//printf("recv length:%d\n",read_size);
-				//printf("recv:(str)\n");
-				//printf("%s\n",rx_buff);
-				print_hex(rx_buff,read_size);
+				printf("recv:(str)\n");
+				printf("%s\n",rx_buff);
+				//print_hex(rx_buff,read_size);
 				rlt_msg_queue_send(msg_queue, DATA_FROM_NET, rx_buff, read_size);
 			}
 		}

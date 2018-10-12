@@ -735,6 +735,7 @@ void cattsoft_dispatch_publish_packet(int socket_fd, unsigned char *rdata, unsig
 			print_hex(tx_buff, 4);
 		}
         uart_packet_len = data_from_m2m_parse(payload, uart_packet, payload_len);
+		uart_packet[uart_packet_len - 1] = get_checksum(&uart_packet[1], uart_packet_len - 2);
         uart_data_send(uart_packet, uart_packet_len);
 		//xTimerStart(dataresp_timer, 0);
     }
@@ -742,6 +743,7 @@ void cattsoft_dispatch_publish_packet(int socket_fd, unsigned char *rdata, unsig
     else if(strncmp((const char*)topic,"ser2dev/res/",strlen("ser2dev/res/"))==0)
     {
         uart_packet_len = data_from_m2m_parse(payload, uart_packet, payload_len);
+		uart_packet[uart_packet_len - 1] = get_checksum(&uart_packet[1], uart_packet_len - 2);
         uart_data_send(uart_packet, uart_packet_len);
     }
 }

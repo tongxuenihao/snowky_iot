@@ -219,7 +219,7 @@ void rlk_tcp_send_func(int argc, char *argv[])
 			if(que_msg.msg_flag == SET_TCP_SOCKET)
 			{
 				log_printf(LOG_DEBUG"[%s]tcp socket create\n",__FUNCTION__);
-				ret = tcp_socket_set(HTTP_SERVER, HTTP_PORT,0);
+				ret = tcp_socket_set(SN_HTTP_SERVER, HTTP_PORT,0);
 				if(ret >= 0)
 				{
 					rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
@@ -310,7 +310,7 @@ void rlk_tcp_send_func(int argc, char *argv[])
 								//close http socket and create socket connect m2m server
 								close(socket_fd);  
 								socket_fd = -1; 
-								ret = tcp_socket_set(m2m_server, m2m_port, 0);          
+								ret = tcp_socket_set(M2M_SERVER, m2m_port, 0);          
 								if(ret >= 0)
 								{
 									rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
