@@ -225,16 +225,16 @@ void rlk_tcp_send_func(int argc, char *argv[])
 					rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
 					if(*((uint32_t *) dev_info) != ~0x0 && strlen(dev_info->did) && (dev_info->did[0] != 0xff))
 					{
-						//ret = cattsoft_device_register_request(socket_fd);
-						//if(ret == 1)
-						//{
-							//set_http_status(DEVICE_REGISTER_RES);
-						//}
-						ret = cattsoft_device_prelogin_request(socket_fd);
+						ret = cattsoft_device_register_request(socket_fd);
 						if(ret == 1)
 						{
-							set_http_status(DEVICE_PRE_LOGIN_RES);
+							set_http_status(DEVICE_REGISTER_RES);
 						}
+						//ret = cattsoft_device_prelogin_request(socket_fd);
+						//if(ret == 1)
+						//{
+							//set_http_status(DEVICE_PRE_LOGIN_RES);
+						//}
 					}
 					else
 					{
@@ -266,6 +266,8 @@ void rlk_tcp_send_func(int argc, char *argv[])
 						//set_http_status(DEVICE_LOGOUT_RES);
 						rlt_device_info_clean();
 						rlt_wifi_info_clean();
+						dev_info->alink_reset_flag = 0x01;
+						rlt_device_info_write((unsigned char *)dev_info, sizeof(t_dev_info));
 						sys_reset(); 
 					}
 				}

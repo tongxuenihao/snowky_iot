@@ -270,6 +270,7 @@ int cattsoft_http_registerion_parse(unsigned char *data)
 
 	get_info_from_cjson(body, "devid", dev_info->did);
 	get_info_from_cjson(body, "accessToken", dev_info->access_token);
+	dev_info->alink_reset_flag = 0x02;
 	rlt_device_info_write((unsigned char *)dev_info, sizeof(t_dev_info));
 	free(dev_info);
 	return 1;

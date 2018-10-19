@@ -275,7 +275,8 @@ connect_ap:
 	ret = connect_wifi_config(wifi_info);
 	//ret = xt_connect_wifi_config();
 	rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
-	if(*((uint32_t *) dev_info) != ~0x0 && strlen(dev_info->did) && (dev_info->did[0] != 0xff))
+	//if(*((uint32_t *) dev_info) != ~0x0 && strlen(dev_info->did) && (dev_info->did[0] != 0xff))
+	if(dev_info->alink_reset_flag == 0x02)
 	{
 		net_event_init();
 	}

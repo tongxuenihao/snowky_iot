@@ -94,6 +94,8 @@ int socket_client_data_read(int client_fd)
 void rlt_tcp_server_start(int argc, char *argv[])
 {
 	int max_socket_fd = -1;
+	int ap_start;
+	int ap_end;
 
 	struct sockaddr_in server_addr;
 	int server_fd = -1;
@@ -116,12 +118,17 @@ void rlt_tcp_server_start(int argc, char *argv[])
 		printf("socket error\n");
 		goto exit;
 	}
-
+	ap_start = xTaskGetTickCount();
 	while(1) 
 	{
 		int socket_fd;
 		fd_set read_fds;
 		struct timeval timeout;
+		ap_end = xTaskGetTickCount();
+		if(ap_end - ap_start > 90*1000)
+		{
+			sys_reset();
+		}
 
 		FD_ZERO(&read_fds);
 		timeout.tv_sec = SELECT_TIMEOUT;
@@ -166,7 +173,7 @@ void rlt_tcp_server_start(int argc, char *argv[])
 			printf("TCP server: no data in %d seconds\n", SELECT_TIMEOUT);
 		}
 
-		vTaskDelay(10);
+		vTaskDelay(2000);
 	}
 
 exit:
@@ -348,8 +355,6 @@ void rlt_softap_start(rlt_ap_setting *ap_info)
 	netif_set_addr(pnetif, &ipaddr, &netmask,&gw);
 #endif
 	wifi_off();
-
-
 	vTaskDelay(20);
 	if (wifi_on(RTW_MODE_AP) < 0)
 	{
@@ -372,7 +377,7 @@ void rlt_softap_start(rlt_ap_setting *ap_info)
 	//rlt_broadcast_recv_entry();
 	while(1)
 	{
-		vTaskDelay(500);
+		vTaskDelay(3000);
 	}
 }
 

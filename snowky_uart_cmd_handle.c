@@ -164,6 +164,15 @@ void uart_cmd_0x09_handle(unsigned char *data, unsigned int data_len)
 	dev_info->dev_ver[DEV_VER_LEN] = '\0';
 	rlt_device_info_write((unsigned char *)dev_info, sizeof(t_dev_info));
 	ver_get_success = 1;
+	if(dev_info->alink_reset_flag == 0x01)
+	{
+		rlt_device_info_clean();
+		rlt_wifi_info_clean();
+		dev_info->alink_reset_flag = 0;
+		rlt_device_info_write((unsigned char *)dev_info, sizeof(t_dev_info));
+		log_printf(LOG_DEBUG"[%s]----------------->enter wifi config\n",__FUNCTION__);
+		rlt_softap_config_entry();
+	}
 	free(dev_info);
 }
 
@@ -178,6 +187,16 @@ void uart_cmd_0x0C_handle()
 	unsigned int tdata_len = PACKET_LEN_INCLUDE_SYNC + 3;
 
 	rtw_wifi_setting_t *wifi_info;
+	t_dev_info *dev_info;
+	
+	dev_info = (t_dev_info *)malloc(sizeof(t_dev_info));
+	if(dev_info == NULL)
+	{
+		log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
+		return;
+	}
+	memset((unsigned char *)dev_info, 0, sizeof(t_dev_info));
+	rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
 
 	wifi_info = (rtw_wifi_setting_t *)malloc(sizeof(rtw_wifi_setting_t));
 	if(wifi_info == NULL)
@@ -191,6 +210,7 @@ void uart_cmd_0x0C_handle()
 	{
 		if(*((uint32_t *) wifi_info) != ~0x0 && strlen(wifi_info->ssid))
 		{
+#if 1
 			if(module_status & CLOUD_CONNECT_BIT)
 			{
 				rlt_msg_queue_send(msg_queue, DEVICE_LOGOUT, NULL, 0);
@@ -198,8 +218,11 @@ void uart_cmd_0x0C_handle()
 			}
 			else
 			{
+#endif
 				rlt_device_info_clean();
 				rlt_wifi_info_clean();
+				dev_info->alink_reset_flag = 0x01;
+				rlt_device_info_write((unsigned char *)dev_info, sizeof(t_dev_info));
 				sys_reset();  
 			}
 		}
