@@ -235,12 +235,7 @@ void rlk_net_task(int argc, char *argv[])
 	int ret;
 	t_dev_info *dev_info;
 	rtw_wifi_setting_t *wifi_info;
-#if 1
-	while(!sn_get_success || !ver_get_success)
-	{
-		vTaskDelay(1000);
-	}
-#endif
+
 	//goto connect_ap;
 
 	dev_info = (t_dev_info *)malloc(sizeof(t_dev_info));
@@ -248,6 +243,12 @@ void rlk_net_task(int argc, char *argv[])
 	{
 		log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
 		return;
+	}
+	memset((unsigned char *)dev_info, 0, sizeof(t_dev_info));
+	rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
+	while(!sn_get_success || !ver_get_success || (dev_info->ft_flag == 1))
+	{
+		vTaskDelay(1000);
 	}
 
 	wifi_info = (rtw_wifi_setting_t *)malloc(sizeof(rtw_wifi_setting_t));
@@ -258,6 +259,8 @@ void rlk_net_task(int argc, char *argv[])
 	}
 	memset((unsigned char *)wifi_info, 0, sizeof(rtw_wifi_setting_t));
 	ret = rlt_wifi_info_read((unsigned char *)wifi_info, sizeof(rtw_wifi_setting_t));
+
+
 	//print_hex(wifi_info->ssid, 33);
 	if(ret == 0)
 	{
@@ -274,6 +277,7 @@ void rlk_net_task(int argc, char *argv[])
 connect_ap:
 	ret = connect_wifi_config(wifi_info);
 	//ret = xt_connect_wifi_config();
+#if 1
 	rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
 	//if(*((uint32_t *) dev_info) != ~0x0 && strlen(dev_info->did) && (dev_info->did[0] != 0xff))
 	if(dev_info->alink_reset_flag == 0x02)
@@ -285,12 +289,13 @@ connect_ap:
 		net_udp_init();
 		net_event_init();
 	}
+#endif
 	goto null_model;
 
 null_model:
 	while(1)
 	{
-		watchdog_refresh();
+		//watchdog_refresh();
 		//if(wifi_status_compare())
 		//{
 			//wifi_staus_print();

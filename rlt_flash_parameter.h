@@ -23,7 +23,8 @@ typedef struct dev_info{
 	unsigned char access_token[33];
 	unsigned char access_key[7];
 	unsigned char dev_type;
-	unsigned int alink_reset_flag;
+	unsigned int alink_reset_flag;    //0:NONE;1:enter config;2:connect server
+	unsigned int ft_flag;
 }t_dev_info;
 
 

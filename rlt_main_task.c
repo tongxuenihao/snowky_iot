@@ -21,10 +21,10 @@ void snowky_example_thread(int argc, char *argv[])
 	set_log_printf_level(3);
 	log_printf(LOG_DEBUG"[%s]system init\n",__func__);
 
-	watchdog_init(10000);	
-	watchdog_irq_init(ilife_watchdog_irq_handler, 0);
-	watchdog_start();
-	watchdog_refresh();
+	//watchdog_init(10000);	
+	//watchdog_irq_init(ilife_watchdog_irq_handler, 0);
+	//watchdog_start();
+	//watchdog_refresh();
 	
 	rlk_uart_task_init();
 	rlk_net_task_init();//
@@ -32,7 +32,7 @@ void snowky_example_thread(int argc, char *argv[])
 
 	while(1)
 	{
-		watchdog_refresh();
+		//watchdog_refresh();
 		//printf(LOG_DEBUG"Available heap %d\n",xPortGetFreeHeapSize());	
 		vTaskDelay(3000);
 	}

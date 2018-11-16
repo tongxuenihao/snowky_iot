@@ -226,10 +226,11 @@ static int mqtt_connect(t_mqtt_broke *broker,unsigned char *dev_did, int did_len
 	flags |= MQTT_WILL_FLAG;                //fix
     payload_len += (did_len + strlen("dev2ser/lastWill/") + 2);
 
+	flags |= MQTT_WILL_RETAIN;  
 	
-	//flags |= MQTT_WILL_QoS;  
+	flags |= MQTT_WILL_QoS2;  
 
-	payload_len += (strlen("close") + 2);
+	payload_len += 2;//(strlen("close") + 2);
 
     var_header[7]= flags;
     fixed_header_size = 2; 
@@ -276,19 +277,19 @@ static int mqtt_connect(t_mqtt_broke *broker,unsigned char *dev_did, int did_len
     memcpy(packet+offset, broker->clientid, clientidlen);
     offset += clientidlen;
 #if 1
-    topiclen = did_len + strlen("dev2ser/lastWill/");
+    topiclen = did_len + strlen("dev2ser/lastwill/");
     memset(sub_topic_buff, 0, 128);           //fix
     sub_topic_buff[0] = topiclen >> 8;
     sub_topic_buff[1] = topiclen & 0xFF;
-    memcpy(sub_topic_buff + 2, "dev2ser/lastWill/", strlen("dev2ser/lastWill/"));
-    memcpy(sub_topic_buff + strlen("dev2ser/lastWill/") + 2, dev_did, did_len);
+    memcpy(sub_topic_buff + 2, "dev2ser/lastwill/", strlen("dev2ser/lastwill/"));
+    memcpy(sub_topic_buff + strlen("dev2ser/lastwill/") + 2, dev_did, did_len);
 
-	sub_topic_buff[topiclen + 2] = strlen("close") >> 8;
-	sub_topic_buff[topiclen + 3] = strlen("close") & 0xFF;
-	memcpy(sub_topic_buff + topiclen + 4, "close", strlen("close"));
+	sub_topic_buff[topiclen + 2] = 0;//strlen("close") >> 8;
+	sub_topic_buff[topiclen + 3] = 0;//strlen("close") & 0xFF;
+	//memcpy(sub_topic_buff + topiclen + 4, "close", strlen("close"));
 	
-    memcpy(packet+offset, sub_topic_buff, topiclen + 9);
-    offset += (topiclen + 9);       //fix	
+    memcpy(packet+offset, sub_topic_buff, topiclen + 4);
+    offset += (topiclen + 4);       //fix	
 #endif
 
     packet[offset++] = usernamelen>>8;

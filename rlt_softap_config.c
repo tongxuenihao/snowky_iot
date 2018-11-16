@@ -96,10 +96,19 @@ void rlt_tcp_server_start(int argc, char *argv[])
 	int max_socket_fd = -1;
 	int ap_start;
 	int ap_end;
-
+	t_dev_info *dev_info;
 	struct sockaddr_in server_addr;
 	int server_fd = -1;
 	int socket_used[MAX_SOCKETS];
+
+
+	dev_info = (t_dev_info *)malloc(sizeof(t_dev_info));
+	if(dev_info == NULL)
+	{
+		log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
+		return;
+	}
+	memset((unsigned char *)dev_info, 0, sizeof(t_dev_info));
 
 	memset(socket_used, 0, sizeof(socket_used));
 	if((server_fd = tcp_socket_init(SERVER_PORT)) >= 0) 
@@ -125,8 +134,11 @@ void rlt_tcp_server_start(int argc, char *argv[])
 		fd_set read_fds;
 		struct timeval timeout;
 		ap_end = xTaskGetTickCount();
-		if(ap_end - ap_start > 90*1000)
+		if(ap_end - ap_start > SOFTAP_TIMEOUT_CONFIG)
 		{
+			rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
+			dev_info->alink_reset_flag = 0x00;
+			rlt_device_info_write((unsigned char *)dev_info, sizeof(t_dev_info));
 			sys_reset();
 		}
 
@@ -329,10 +341,19 @@ void rlt_broadcast_func(unsigned char *ap_name, int flag)
 
 void rlt_generate_ap_name(unsigned char *ap_name)
 {
-	unsigned char *mac;
-	mac = LwIP_GetMAC(&xnetif[0]);
+	t_dev_info *dev_info;		 
+	dev_info = (t_dev_info *)malloc(sizeof(t_dev_info));
+	if(dev_info == NULL)
+	{
+		log_printf(LOG_WARNING"[%s]malloc error\n",__FUNCTION__);
+		return;
+	}
+	memset((unsigned char *)dev_info, 0, sizeof(t_dev_info));
+	rlt_device_info_read((unsigned char *)dev_info, sizeof(t_dev_info));
+	dev_info->dev_sn[DEV_SN_LEN] = '\0';
+
 	memset(ap_name, 0, AP_SSID_LEN);
-	sprintf(ap_name, "SNOWKY_%02x%02x", mac[4], mac[5]);
+	sprintf(ap_name, "SNOWKY_%02x%02x", dev_info->dev_sn[26], dev_info->dev_sn[27]);
 	log_printf(LOG_DEBUG"[%s]ap name:%s\n",__FUNCTION__,ap_name);
 }
 

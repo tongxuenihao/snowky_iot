@@ -115,7 +115,7 @@ void uart_msg_handle(unsigned char *data, unsigned int data_len)
 			break;
 
 		case CMD_REQUEST_NET_STATUS:
-			uart_cmd_0x06_handle();
+			uart_cmd_0x06_handle(data);
 			break;
 
 		case CMD_GET_SN:
@@ -320,7 +320,7 @@ void rlk_uart_task(int argc, char *argv[])
 int rlk_uart_task_init()
 {
 	xTaskHandle app_task_handle = NULL;
-
+	
 	if(xTaskCreate((TaskFunction_t)rlk_uart_task, (char const *)"rlk_uart_task", 1024*3, NULL, tskIDLE_PRIORITY + 5, &app_task_handle) != pdPASS) {
 		printf("xTaskCreate failed\n");	
 	}

@@ -16,6 +16,8 @@
 #define SERVER_PORT     5000
 #define LISTEN_QLEN     2
 
+#define SOFTAP_TIMEOUT_CONFIG 90*1000
+
 typedef struct rlt_ap_setting{
 	unsigned char 		ssid[AP_SSID_LEN];
 	unsigned char		channel;
