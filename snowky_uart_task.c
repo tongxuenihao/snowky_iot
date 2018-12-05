@@ -8,6 +8,8 @@
 #include "common.h"
 
 extern xQueueHandle msg_queue;
+extern unsigned short module_status;
+
 
 gtimer_t cmd_07_timer;
 serial_t sobj;
@@ -146,7 +148,14 @@ void uart_msg_handle(unsigned char *data, unsigned int data_len)
 	}
 	if(post_rawdata_flag)
 	{
-		rlt_msg_queue_send(msg_queue, DATA_FROM_UART, data, data_len);
+		if(module_status & CLOUD_CONNECT_BIT)
+		{
+			rlt_msg_queue_send(msg_queue, DATA_FROM_UART, data, data_len);
+		}
+		else
+		{
+			printf("cloud disconnect, no act\n");
+		}
 	}
 }
 

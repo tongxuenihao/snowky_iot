@@ -353,7 +353,9 @@ void rlt_generate_ap_name(unsigned char *ap_name)
 	dev_info->dev_sn[DEV_SN_LEN] = '\0';
 
 	memset(ap_name, 0, AP_SSID_LEN);
-	sprintf(ap_name, "SNOWKY_%02x%02x", dev_info->dev_sn[26], dev_info->dev_sn[27]);
+	memcpy(ap_name, "SNOWKY_", 7);
+	memcpy(&ap_name[7], &dev_info->dev_sn[24], 4);
+	//sprintf(ap_name, "SNOWKY_%02x%02x", dev_info->dev_sn[26], dev_info->dev_sn[27]);
 	log_printf(LOG_DEBUG"[%s]ap name:%s\n",__FUNCTION__,ap_name);
 }
 
